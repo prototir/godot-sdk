@@ -1,0 +1,12 @@
+{
+  "name": "Godot Web prototype",
+  "type": "game",
+  "entry": "index.html",
+  "devices": ["desktop", "mobile"],
+  "orientation": "any",
+  "runtime": {
+    "engine": "godot",
+    "engineVersion": "4.3",
+    "profile": "standard"
+  }
+}

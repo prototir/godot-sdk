@@ -1,0 +1,11 @@
+* text=auto eol=lf
+*.gd text eol=lf
+*.tscn text eol=lf
+*.cfg text eol=lf
+*.json text eol=lf
+
+# Godot Asset Library downloads install only the addon. Documentation and license copies live
+# inside that folder so users retain them after installation.
+/** export-ignore
+/addons !export-ignore
+/addons/** !export-ignore
