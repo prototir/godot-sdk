@@ -71,6 +71,40 @@ with `JavaScriptBridge.get_interface()` and never executes inline JavaScript or 
 `unsafe-eval`. Editor and native play mode use in-memory storage and mock signals; managed AI
 requires an explicit `mock_ai_handler`.
 
+## Screenshot feedback
+
+Call `review_enable` to give testers a floating feedback button in Web exports. They capture the
+current view, drop a pin on that screenshot and write a comment.
+
+```gdscript
+func _ready() -> void:
+	Prototir.review_visibility_changed.connect(_on_review_visibility)
+	Prototir.review_enable("orbit-garden", "v1.4.0", "bottom-left")
+
+
+func _on_review_visibility(open: bool) -> void:
+	get_tree().paused = open
+```
+
+`review_enable(project, build, corner)` takes a stable `project` identifier (reviews exported from
+another project are refused on import), a `build` recorded with the feedback, and a corner of
+`bottom-left` (default), `bottom-right`, `top-left`, or `top-right`. `review_disable()` removes the
+overlay.
+
+Connect `review_visibility_changed` and pause while the panel is open, otherwise the game keeps
+consuming the input the tester is typing into their comment.
+
+Screenshots come from the viewport after `RenderingServer.frame_post_draw`, so they match the
+rendered frame. The export plugin bundles the browser runtime with the export, which is what lets
+this work off Prototir; re-export with the addon enabled after upgrading.
+
+`review_enable` warns and returns on non-Web exports. On Prototir the feedback becomes an ordinary
+comment on the prototype, after Prototir's own confirmation dialog. In a Web export you host
+yourself the panel saves a `feedback.prototir-review.json` file that the tester sends you and you
+reload with **Import review**. See the
+[Web SDK README](https://github.com/prototir/web-sdk#screenshot-feedback) for the file format and its
+limits.
+
 ## Documentation and examples
 
 - [Addon quick reference](addons/prototir/README.md)

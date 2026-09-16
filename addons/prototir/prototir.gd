@@ -12,6 +12,7 @@ signal mock_ready_sent
 signal mock_event_sent(name: String, data: Dictionary)
 signal mock_score_sent(value: float)
 signal shell_initialized(session_id: String)
+signal review_visibility_changed(open: bool)
 
 var mock_ai_handler: Callable
 var _mock_storage: Dictionary = {}
@@ -20,6 +21,44 @@ var _storage_requests: Dictionary = {}
 var _ai_requests: Dictionary = {}
 var _bridge
 var _message_callback
+var _review_bridge
+var _review_visibility_callback
+var _review_capture_callback
+
+
+## Opt in to screenshot feedback. The export plugin bundles its local browser UI.
+## Connect review_visibility_changed to pause gameplay/input while writing feedback.
+func review_enable(project: String, build: String = "", corner: String = "bottom-left") -> void:
+	if not OS.has_feature("web"):
+		push_warning("Screenshot Review Mode currently requires a Web export.")
+		return
+	_review_bridge = JavaScriptBridge.get_interface("__prototirReviewBridge")
+	if _review_bridge == null:
+		push_error("Review runtime missing. Re-export with the Prototir addon enabled.")
+		return
+	_review_visibility_callback = JavaScriptBridge.create_callback(_on_review_visibility)
+	_review_capture_callback = JavaScriptBridge.create_callback(_on_review_capture)
+	_review_bridge.enable(JSON.stringify({"project": project, "build": build, "corner": corner}), _review_visibility_callback, _review_capture_callback)
+
+
+func review_disable() -> void:
+	if _review_bridge != null:
+		_review_bridge.disable()
+		_review_bridge = null
+
+
+func _on_review_visibility(arguments: Array) -> void:
+	if not arguments.is_empty():
+		review_visibility_changed.emit(bool(arguments[0]))
+
+
+func _on_review_capture(_arguments: Array) -> void:
+	await RenderingServer.frame_post_draw
+	if _review_bridge == null:
+		return
+	var screenshot := get_viewport().get_texture().get_image()
+	var bytes := screenshot.save_jpg_to_buffer(0.8)
+	_review_bridge.captured("data:image/jpeg;base64," + Marshalls.raw_to_base64(bytes))
 
 
 func _ready() -> void:

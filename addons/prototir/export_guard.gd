@@ -53,3 +53,22 @@ func _export_end() -> void:
 	file.store_buffer(bytes)
 	file.close()
 	print("Prototir wrote %s" % destination)
+	# Local scripts work on Prototir and any static host, without a CDN or unsafe-eval.
+	for asset in ["prototir.js", "review-bridge.js"]:
+		var target := _export_path.get_base_dir().path_join("prototir-" + asset)
+		var output := FileAccess.open(target, FileAccess.WRITE)
+		if output == null:
+			push_error("Prototir could not bundle review runtime: " + target)
+			return
+		output.store_buffer(FileAccess.get_file_as_bytes("res://addons/prototir/web/" + asset))
+		output.close()
+	var html := FileAccess.get_file_as_string(_export_path)
+	if not html.contains('src="prototir-prototir.js"'):
+		var tags := '<script src="prototir-prototir.js"></script><script src="prototir-review-bridge.js"></script>'
+		html = html.replace("</head>", tags + "</head>") if html.contains("</head>") else tags + html
+		var entry := FileAccess.open(_export_path, FileAccess.WRITE)
+		if entry == null:
+			push_error("Prototir could not add review scripts to the Web entry.")
+			return
+		entry.store_string(html)
+		entry.close()
