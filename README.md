@@ -102,6 +102,20 @@ Screenshots come from the viewport after `RenderingServer.frame_post_draw`, so t
 rendered frame. The export plugin bundles the browser runtime with the export, which is what lets
 this work off Prototir; re-export with the addon enabled after upgrading.
 
+### Posting from a downloaded build
+
+A native export has no Prototir session, and providers like Google refuse to sign in inside an
+embedded browser. So the export sends the tester to a real one: it shows a short code and a QR, the
+tester approves at `prototir.com/link` on their desktop or phone, and the build receives a token
+scoped to that one prototype.
+
+They approve once per machine, not once per comment, and the screenshot they were writing is kept
+and posted the moment they come back. Testers can disconnect any build from their Prototir account
+settings.
+
+Pass `api_base` and `slug` to enable it. Without them the panel saves review files instead, which
+needs no account and works offline.
+
 `review_enable` warns and returns on non-Web exports. On Prototir the feedback becomes an ordinary
 comment on the prototype, after Prototir's own confirmation dialog. In a Web export you host
 yourself the panel saves a `feedback.prototir-review.json` file that the tester sends you and you
