@@ -27,8 +27,11 @@ var _review_capture_callback
 
 
 ## Opt in to screenshot feedback. The export plugin bundles its local browser UI.
+## launcher: "auto" lets Prototir draw the control on its own surfaces, "watermark" always shows
+## the Prototir mark, "host" draws nothing so the game can call review_open() itself.
+## theme: "auto" follows the player's light/dark preference.
 ## Connect review_visibility_changed to pause gameplay/input while writing feedback.
-func review_enable(project: String, build: String = "", corner: String = "bottom-left") -> void:
+func review_enable(project: String, build: String = "", corner: String = "bottom-left", launcher: String = "auto", theme: String = "auto") -> void:
 	if not OS.has_feature("web"):
 		push_warning("Screenshot Review Mode currently requires a Web export.")
 		return
@@ -38,7 +41,7 @@ func review_enable(project: String, build: String = "", corner: String = "bottom
 		return
 	_review_visibility_callback = JavaScriptBridge.create_callback(_on_review_visibility)
 	_review_capture_callback = JavaScriptBridge.create_callback(_on_review_capture)
-	_review_bridge.enable(JSON.stringify({"project": project, "build": build, "corner": corner}), _review_visibility_callback, _review_capture_callback)
+	_review_bridge.enable(JSON.stringify({"project": project, "build": build, "corner": corner, "launcher": launcher, "theme": theme}), _review_visibility_callback, _review_capture_callback)
 
 
 func review_disable() -> void:

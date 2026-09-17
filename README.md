@@ -86,10 +86,14 @@ func _on_review_visibility(open: bool) -> void:
 	get_tree().paused = open
 ```
 
-`review_enable(project, build, corner)` takes a stable `project` identifier (reviews exported from
+`review_enable(project, build, corner, launcher, theme)` takes a stable `project` identifier (reviews exported from
 another project are refused on import), a `build` recorded with the feedback, and a corner of
 `bottom-left` (default), `bottom-right`, `top-left`, or `top-right`. `review_disable()` removes the
-overlay.
+overlay. `launcher` is `auto` (Prototir draws the control on its own surfaces), `watermark` (always
+show the Prototir mark and its menu) or `host` (draw nothing). `theme` is `auto`, `light` or `dark`.
+
+Off Prototir the mark opens the same menu testers see in a web build - **Screenshot & comment**,
+**Comments**, **Open on Prototir** - so the experience does not change between web and native.
 
 Connect `review_visibility_changed` and pause while the panel is open, otherwise the game keeps
 consuming the input the tester is typing into their comment.
