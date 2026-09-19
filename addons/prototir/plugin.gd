@@ -30,7 +30,12 @@ func _enter_tree() -> void:
 	add_tool_menu_item("Prototir: Export for Prototir (Download)", _export_menu.export_download)
 	_export_guard = ExportGuard.new()
 	add_export_plugin(_export_guard)
-	_register_settings()
+	# Not in a headless editor. The export buttons run a second, headless copy of this editor to
+	# do the actual exporting, and that copy loads this plugin too: registering there would mean
+	# two processes writing project.godot at once, for settings whose only purpose is to appear
+	# in a dialog nobody is looking at.
+	if DisplayServer.get_name() != "headless":
+		_register_settings()
 	call_deferred("_report_setup")
 
 

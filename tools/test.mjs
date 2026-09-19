@@ -94,6 +94,14 @@ try {
   ])
     assert.ok(exportGuard.includes(token), `export guard missing ${token}`);
 
+  // The build id sidecar is read by Prototir and sits beside the Unity one, which writes a real
+  // ISO 8601 instant. Godot's helper defaults to a space separator, which is neither ISO nor what
+  // the other SDK produces, and the difference is invisible until someone parses the field.
+  assert.ok(
+    !/get_datetime_string_from_system\(true,\s*true\)/.test(exportGuard),
+    'the build id timestamp must not use the space separator; pass use_space: false'
+  );
+
   // What keeps a Web bundle free of the pairing client, and a download free of the browser
   // bridge. Behaviour is covered by tests/run_tests.gd; these two invariants are the ones that
   // break the stripping itself, and neither is visible from inside a running game.

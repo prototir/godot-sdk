@@ -38,7 +38,9 @@ func _write_build_id() -> void:
 		"buildId": _new_build_id(),
 		"sdk": "godot",
 		"sdkVersion": _plugin_version(),
-		"createdAt": Time.get_datetime_string_from_system(true, true) + "Z",
+		# No space separator: this is ISO 8601, the same shape the Unity exporter writes, and a
+		# space makes it something neither a parser nor the other SDK agrees with.
+		"createdAt": Time.get_datetime_string_from_system(true, false) + "Z",
 	}
 	var file := FileAccess.open(destination, FileAccess.WRITE)
 	if file == null:

@@ -131,7 +131,8 @@ func _on_directory_chosen(directory: String) -> void:
 			else "Add it under \"Download and run\" on the upload page, and remember a cover image "
 				+ "is required when there is no web build.",
 	])
-	OS.shell_show_in_file_manager(ProjectSettings.globalize_path(archive), true)
+	if not _headless():
+		OS.shell_show_in_file_manager(ProjectSettings.globalize_path(archive), true)
 
 
 ## Adds the unused transport to this preset exclude filter, once, and leaves it there.
@@ -240,7 +241,18 @@ func _remove_tree(folder: String) -> void:
 	DirAccess.remove_absolute(folder)
 
 
+## True when there is no one to click anything: a CI export, or this addon's own tests. Dialogs
+## are skipped rather than shown to nobody, and nothing tries to open a file manager on a machine
+## with no desktop. Unity's exporter draws the same line with Application.isBatchMode.
+func _headless() -> bool:
+	return DisplayServer.get_name() == "headless"
+
+
 func _say(message: String) -> void:
+	# A dialog nobody can dismiss is a hang waiting to happen, so headless gets the text instead.
+	if _headless():
+		print("Prototir export: " + message)
+		return
 	if _dialog == null:
 		_dialog = AcceptDialog.new()
 		_dialog.title = "Prototir export"
