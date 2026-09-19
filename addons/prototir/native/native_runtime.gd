@@ -9,6 +9,7 @@ extends Node
 
 const PairingFlow := preload("res://addons/prototir/native/pairing_flow.gd")
 const SessionRecorder := preload("res://addons/prototir/native/session_recorder.gd")
+const SessionQueue := preload("res://addons/prototir/native/session_queue.gd")
 const Transport := preload("res://addons/prototir/native/native_transport.gd")
 
 const SLUG_SETTING := "prototir/prototype_slug"
@@ -33,22 +34,26 @@ var state: State = State.NOT_PAIRED
 var _http
 var _delay
 var _tokens
+var _queue
 var _session
 var _flow
 var _slug := ""
 var _api_base := DEFAULT_API_BASE
 var _device_label := ""
 var _configuration_warned := false
+var _stored_on_close := false
 
 
 func _ready() -> void:
 	_http = Transport.Http.new(self)
 	_delay = Transport.Delay.new(self)
 	_tokens = Transport.TokenStore.new()
+	_queue = SessionQueue.new()
 	_session = SessionRecorder.new(Time.get_ticks_msec)
 	_read_project_settings()
 	if is_paired():
 		state = State.PAIRED
+	send_pending()
 
 
 ## Overrides the project settings, for a game that decides its slug at runtime.
@@ -195,11 +200,48 @@ func read_build_id() -> String:
 	return str(PairingFlow.parse_object(FileAccess.get_file_as_string(path)).get("buildId", ""))
 
 
+## Both notifications, because which one arrives depends on how the game was closed and on whether
+## the project accepts quit automatically. Storing twice is prevented by the flag rather than by
+## guessing which one fires.
 func _notification(what: int) -> void:
-	# A session that is never sent is a play the creator never sees, and quitting is the normal way
-	# a desktop game ends.
-	if what == NOTIFICATION_WM_CLOSE_REQUEST:
-		flush_session()
+	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_EXIT_TREE:
+		_store_session()
+
+
+## A session that is never sent is a play the creator never sees, and quitting is the normal way a
+## desktop game ends. There is no time to send one here, so it is written down instead.
+func _store_session() -> void:
+	if _stored_on_close or _queue == null:
+		return
+	_stored_on_close = true
+	if not _session.has_anything_to_report() or _token().is_empty():
+		return
+	_queue.store(_session.snapshot())
+
+
+## Sends what earlier runs left behind. Anything the server takes, or refuses in a way that will not
+## change, is dropped; anything that failed because the network did is kept for next time.
+func send_pending() -> void:
+	if _slug.is_empty() or _queue == null:
+		return
+	var token := _token()
+	if token.is_empty():
+		return
+	for path in _queue.pending():
+		var body: String = _queue.read(path)
+		if body.strip_edges().is_empty():
+			_queue.discard(path)
+			continue
+		var response: Dictionary = await _http.post_json(_url("sessions"), body, token)
+		var status := int(response.get("status", 0))
+		if PairingFlow.is_token_terminal(status):
+			unpair()
+			pairing_failed.emit(REVOKED_MESSAGE)
+			return
+		if status == 0 or status >= 500:
+			# Offline, or the server is unwell. Keeping the rest is the whole point of the queue.
+			return
+		_queue.discard(path)
 
 
 func _read_project_settings() -> void:

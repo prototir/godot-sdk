@@ -4,6 +4,8 @@
 
 - Added a native transport for downloadable builds: device-code pairing, a stored per-prototype
   token, one accumulated session per play, and comments posted as the tester who approved the build.
+- Added an on-disk session queue: a play is written down when the window closes and sent at the
+  next launch, so closing the game or being offline no longer loses it.
 - Added `Prototir.configure`, `is_paired`, `begin_pairing`, `cancel_pairing`, `unpair`,
   `send_feedback` and `flush_session`, plus the `pairing_started`, `pairing_succeeded` and
   `pairing_failed` signals.

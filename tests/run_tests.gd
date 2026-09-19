@@ -11,6 +11,7 @@ extends SceneTree
 const PairingFlow := preload("res://addons/prototir/native/pairing_flow.gd")
 const SessionRecorder := preload("res://addons/prototir/native/session_recorder.gd")
 const ExportMenu := preload("res://addons/prototir/export_menu.gd")
+const SessionQueue := preload("res://addons/prototir/native/session_queue.gd")
 
 var _checks := 0
 var _failures := 0
@@ -59,6 +60,7 @@ func _initialize() -> void:
 func _run_all() -> void:
 	_recorder_tests()
 	await _pairing_tests()
+	_queue_tests()
 	_export_menu_tests()
 
 
@@ -313,6 +315,52 @@ func _poll(responses: Array, timeout: float, interval: float) -> Dictionary:
 	var flow := PairingFlow.new(http, delay, clock.now, "https://prototir.com/api", "slug")
 	var result: Dictionary = await flow.await_approval("ABCD", timeout, interval)
 	return {"result": result, "http": http, "delay": delay}
+
+
+# --- session queue ------------------------------------------------------------------------------
+
+func _queue_tests() -> void:
+	var directory := "user://queue_test_%d" % Time.get_ticks_usec()
+	var queue := SessionQueue.new(directory)
+
+	_current = "a queue nobody has written to is empty, not an error"
+	_check_eq(queue.pending().size(), 0)
+
+	_current = "a stored session comes back exactly as it was written"
+	_check(queue.store({"durationMs": 1200, "eventCount": 3, "sessionId": "sess_a"}))
+	_check_eq(queue.pending().size(), 1)
+	var body: Dictionary = JSON.parse_string(queue.read(queue.pending()[0]))
+	_check_eq(body.get("durationMs"), 1200)
+	_check_eq(body.get("sessionId"), "sess_a")
+
+	_current = "two sessions stored back to back do not overwrite each other"
+	queue.store({"durationMs": 2400})
+	_check_eq(queue.pending().size(), 2)
+
+	_current = "sessions come back oldest first, so plays land in the order they happened"
+	var paths := queue.pending()
+	_check_eq(int(JSON.parse_string(queue.read(paths[0])).get("durationMs")), 1200)
+	_check_eq(int(JSON.parse_string(queue.read(paths[1])).get("durationMs")), 2400)
+
+	_current = "a sent session is dropped, and dropping one twice is harmless"
+	queue.discard(paths[0])
+	queue.discard(paths[0])
+	_check_eq(queue.pending().size(), 1)
+
+	_current = "a build that never reaches the network keeps the newest plays, not every play"
+	var full := SessionQueue.new(directory + "_full")
+	for i in SessionQueue.MAX_PENDING + 5:
+		full.store({"durationMs": i})
+	_check_eq(full.pending().size(), SessionQueue.MAX_PENDING)
+	var oldest_kept = JSON.parse_string(full.read(full.pending()[0])).get("durationMs")
+	_check_eq(int(oldest_kept), 5)
+	var newest_kept = JSON.parse_string(full.read(full.pending()[-1])).get("durationMs")
+	_check_eq(int(newest_kept), SessionQueue.MAX_PENDING + 4)
+
+	for path in queue.pending():
+		queue.discard(path)
+	for path in full.pending():
+		full.discard(path)
 
 
 # --- export buttons ---------------------------------------------------------------------------

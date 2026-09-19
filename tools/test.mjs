@@ -115,7 +115,7 @@ try {
     "the autoload must load() the native runtime, not preload() it: a preload keeps a hard " +
       "dependency on files the Web export strips, and the bundle then fails to open",
   );
-  for (const name of ["native_runtime", "pairing_flow", "session_recorder", "native_transport"]) {
+  for (const name of ["native_runtime", "pairing_flow", "session_recorder", "native_transport", "session_queue"]) {
     const source = readFileSync(
       new URL(`../addons/prototir/native/${name}.gd`, import.meta.url),
       "utf8",

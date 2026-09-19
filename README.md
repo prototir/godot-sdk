@@ -147,9 +147,11 @@ func _show_code(request: Dictionary) -> void:
 The addon draws nothing. It cannot know your art direction, your input model, or whether you are in
 VR, so it hands you the code, the link and a ready-made QR and leaves the screen to you.
 
-`ready()`, `event()` and `score()` accumulate one session rather than one request each, and it is
-sent when the window closes. Call `Prototir.flush_session()` yourself at a natural break, such as
-the end of a run. `Prototir.send_feedback("...")` posts a comment as the tester who approved the
+`ready()`, `event()` and `score()` accumulate one session rather than one request each. Call
+`Prototir.flush_session()` at a natural break, such as the end of a run. When the window closes
+there is no time to send anything, so the session is written to `user://prototir/pending` instead
+and sent the next time the build starts. That covers the tester playing on a train as well: sessions
+carry their server id, so one arriving late updates its row rather than counting a second play. `Prototir.send_feedback("...")` posts a comment as the tester who approved the
 build; no session is needed first, because approving the pairing is the stronger signal.
 
 Pairing works when you run from the editor, so you can build the screen without exporting every
