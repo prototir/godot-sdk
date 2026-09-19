@@ -12,7 +12,11 @@ extends RefCounted
 ## Distinct event names kept. Past this the counts still accumulate into the total, but the
 ## per-name breakdown stops growing: a runaway loop generating unique names must not turn one
 ## session into an unbounded payload.
-const MAX_DISTINCT_SIGNALS := 64
+##
+## The same number the server keeps. Sending more would not record more: the server drops the
+## surplus silently, so a larger number here would only mean a bigger payload and a different
+## answer to "how many events can I use" depending on who you ask.
+const MAX_DISTINCT_SIGNALS := 50
 const MAX_EVENT_NAME_LENGTH := 64
 
 ## Set once the server has given this session a row, so a later flush updates it instead of
