@@ -93,6 +93,40 @@ try {
     '"engineVersion":',
   ])
     assert.ok(exportGuard.includes(token), `export guard missing ${token}`);
+
+  // What keeps a Web bundle free of the pairing client, and a download free of the browser
+  // bridge. Behaviour is covered by tests/run_tests.gd; these two invariants are the ones that
+  // break the stripping itself, and neither is visible from inside a running game.
+  for (const token of ["Prototir: Export for Prototir (Web)", "Prototir: Export for Prototir (Download)"])
+    assert.ok(editorPlugin.includes(token), `editor plugin missing ${token}`);
+  const exportMenu = readFileSync(
+    new URL("../addons/prototir/export_menu.gd", import.meta.url),
+    "utf8",
+  );
+  assert.match(exportMenu, /WEB_EXCLUDES := "addons\/prototir\/native\/\*"/);
+  assert.match(exportMenu, /DOWNLOAD_EXCLUDES := "addons\/prototir\/web\/\*"/);
+
+  const autoload = readFileSync(
+    new URL("../addons/prototir/prototir.gd", import.meta.url),
+    "utf8",
+  );
+  assert.ok(
+    !/preload\(\s*"res:\/\/addons\/prototir\/native\//.test(autoload),
+    "the autoload must load() the native runtime, not preload() it: a preload keeps a hard " +
+      "dependency on files the Web export strips, and the bundle then fails to open",
+  );
+  for (const name of ["native_runtime", "pairing_flow", "session_recorder", "native_transport"]) {
+    const source = readFileSync(
+      new URL(`../addons/prototir/native/${name}.gd`, import.meta.url),
+      "utf8",
+    );
+    assert.ok(
+      !/^class_name /m.test(source),
+      `${name}.gd must not declare class_name: a script in the global class list that the Web ` +
+        "export strips fails to resolve when the project loads",
+    );
+  }
+
   console.log("Godot addon and protocol checks passed.");
 } finally {
   rmSync(root, { recursive: true, force: true });

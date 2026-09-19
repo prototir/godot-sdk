@@ -1,18 +1,26 @@
 extends Node
 
 ## Godot-shaped adapter for Prototir protocol v1. Enable the addon to install this script as the
-## `Prototir` autoload. Web exports use JavaScriptBridge; Editor/native runs use local mocks.
+## `Prototir` autoload. Web exports talk to the shell over JavaScriptBridge; downloadable builds
+## pair with prototir.com and report sessions themselves; the Editor keeps emitting its mocks.
 
 const PROTOCOL_VERSION := 1
 const SOURCE := "prototir"
 const STORAGE_MAX_BYTES := 64 * 1024
 const EVENT_NAME_PATTERN := "^[a-z0-9_.:-]+$"
+const NATIVE_RUNTIME_PATH := "res://addons/prototir/native/native_runtime.gd"
 
 signal mock_ready_sent
 signal mock_event_sent(name: String, data: Dictionary)
 signal mock_score_sent(value: float)
 signal shell_initialized(session_id: String)
 signal review_visibility_changed(open: bool)
+
+## Re-emitted from the native runtime, so a game connects to Prototir and never has to know that a
+## separate node exists. A Web export never emits these: the page already carries the session.
+signal pairing_started(request: Dictionary)
+signal pairing_succeeded()
+signal pairing_failed(message: String)
 
 var mock_ai_handler: Callable
 var _mock_storage: Dictionary = {}
@@ -24,6 +32,7 @@ var _message_callback
 var _review_bridge
 var _review_visibility_callback
 var _review_capture_callback
+var _native
 
 
 ## Opt in to screenshot feedback. The export plugin bundles its local browser UI.
@@ -69,6 +78,8 @@ func _on_review_capture(_arguments: Array) -> void:
 func _ready() -> void:
 	if OS.has_feature("web"):
 		install_web_bridge()
+	else:
+		_install_native()
 
 
 ## Signal that the prototype is genuinely interactive, not only showing its loader.
@@ -77,6 +88,8 @@ func ready() -> void:
 		_post({"type": "ready"})
 	else:
 		mock_ready_sent.emit()
+		if _is_reporting_natively():
+			_native.ready()
 
 
 ## Record a stable analytics event with a small JSON-compatible Dictionary payload.
@@ -94,6 +107,8 @@ func event(name: String, data: Dictionary = {}) -> void:
 		_post(message)
 	else:
 		mock_event_sent.emit(normalized, data)
+		if _is_reporting_natively():
+			_native.event(normalized)
 
 
 ## Report a finite score.
@@ -105,6 +120,8 @@ func score(value: float) -> void:
 		_post({"type": "score", "value": value})
 	else:
 		mock_score_sent.emit(value)
+		if _is_reporting_natively():
+			_native.score(value)
 
 
 ## Return a request whose `completed(value)` signal resolves with String or null.
@@ -165,6 +182,58 @@ func install_web_bridge() -> bool:
 	_message_callback = JavaScriptBridge.create_callback(_on_web_message)
 	_bridge.install(_message_callback)
 	return true
+
+
+## Point a downloadable build at a prototype from code, instead of Project Settings > Prototir.
+func configure(slug: String, api_base := "", device_label := "") -> void:
+	if _native != null:
+		_native.configure(slug, api_base, device_label)
+
+
+## Whether this build may act for a person. Always false in a Web export, where the page already
+## carries the visitor session and nothing needs pairing.
+func is_paired() -> bool:
+	return _native != null and _native.is_paired()
+
+
+## Ask Prototir for a pairing code and wait for a tester to approve it on prototir.com. Connect to
+## pairing_started to show the code, the link and the QR: the addon draws nothing, because it
+## cannot know your art direction, your input model, or whether you are in VR.
+## Returns {"outcome": "approved"|"expired"|"cancelled"|"failed", "token": String, "message": String}.
+func begin_pairing() -> Dictionary:
+	if _native == null:
+		return {
+			"outcome": "failed",
+			"token": "",
+			"message": "A Web export does not pair; the page already has the visitor session.",
+		}
+	return await _native.begin_pairing()
+
+
+func cancel_pairing() -> void:
+	if _native != null:
+		_native.cancel_pairing()
+
+
+## Forget the stored token, so this build pairs again next time.
+func unpair() -> void:
+	if _native != null:
+		_native.unpair()
+
+
+## Post feedback as the tester who approved this build. No session is needed first: approving the
+## pairing is the stronger signal, so the usual played-it gate is waived for a paired device.
+func send_feedback(text: String) -> bool:
+	if _native == null:
+		return false
+	return await _native.send_feedback(text)
+
+
+## Report the session so far. Called automatically when the window is closed; call it yourself at a
+## natural break, such as the end of a run.
+func flush_session() -> void:
+	if _native != null:
+		await _native.flush_session()
 
 
 func _storage_request(operation: String, key: String, value: String) -> PrototirRequest:
@@ -241,6 +310,26 @@ func _timeout_request(requests: Dictionary, id: int, seconds: float) -> void:
 	if request != null:
 		requests.erase(id)
 		request.reject("timeout", "The Prototir shell did not answer before the request timed out.")
+
+
+## Loaded rather than preloaded: a Web export strips res://addons/prototir/native entirely, and a
+## preload would both defeat that and fail to resolve in the stripped pack.
+func _install_native() -> void:
+	if _native != null or not ResourceLoader.exists(NATIVE_RUNTIME_PATH):
+		return
+	_native = load(NATIVE_RUNTIME_PATH).new()
+	_native.name = "PrototirNative"
+	add_child(_native)
+	_native.pairing_started.connect(func(request: Dictionary) -> void: pairing_started.emit(request))
+	_native.pairing_succeeded.connect(func() -> void: pairing_succeeded.emit())
+	_native.pairing_failed.connect(func(message: String) -> void: pairing_failed.emit(message))
+
+
+## Pairing is available while running from the Editor, so a creator can build their pairing UI
+## without exporting every time. Reporting is not: an F5 run is not a play, and counting it would
+## put the creator own testing in their own numbers.
+func _is_reporting_natively() -> bool:
+	return _native != null and not OS.has_feature("editor")
 
 
 func _is_web_bridge_ready() -> bool:

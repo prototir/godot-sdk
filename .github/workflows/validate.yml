@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  GODOT_VERSION: 4.7.2
+
 jobs:
   addon:
     runs-on: ubuntu-latest
@@ -17,3 +20,36 @@ jobs:
         with:
           node-version: 22
       - run: node tools/test.mjs
+
+  runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # The addon is GDScript, so the only thing that can tell us it still compiles and still
+      # behaves is Godot itself. The node job above checks structure; this one runs the code.
+      - name: Install Godot ${{ env.GODOT_VERSION }}
+        run: |
+          set -euo pipefail
+          name="Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          url="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${name}.zip"
+          curl -fsSL "$url" -o godot.zip
+          unzip -q godot.zip
+          chmod +x "$name"
+          mv "$name" /usr/local/bin/godot
+
+      # A first headless open imports the project. Without it the very first --script run races
+      # the import and fails on resources that do not exist yet.
+      - name: Import project
+        run: godot --headless --path . --import
+
+      - name: Parse every addon script
+        run: |
+          set -euo pipefail
+          for script in $(find addons tests -name '*.gd'); do
+            echo "checking $script"
+            godot --headless --check-only --script "$script"
+          done
+
+      - name: Run runtime tests
+        run: godot --headless --path . --script tests/run_tests.gd

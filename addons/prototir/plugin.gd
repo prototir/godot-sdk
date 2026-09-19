@@ -6,9 +6,17 @@ const AUTOLOAD_PATH := "res://addons/prototir/prototir.gd"
 const Setup := preload("res://addons/prototir/setup.gd")
 const SetupDock := preload("res://addons/prototir/setup_dock.gd")
 const ExportGuard := preload("res://addons/prototir/export_guard.gd")
+const ExportMenu := preload("res://addons/prototir/export_menu.gd")
+
+const SETTINGS := {
+	"prototir/prototype_slug": "",
+	"prototir/api_base_url": "https://prototir.com/api",
+	"prototir/device_label": "",
+}
 
 var _setup_dock
 var _export_guard: EditorExportPlugin
+var _export_menu
 
 
 func _enter_tree() -> void:
@@ -17,16 +25,41 @@ func _enter_tree() -> void:
 	_setup_dock = SetupDock.new()
 	add_control_to_dock(DOCK_SLOT_RIGHT_BL, _setup_dock)
 	add_tool_menu_item("Prototir: Validate Web Setup", _show_setup)
+	_export_menu = ExportMenu.new(self)
+	add_tool_menu_item("Prototir: Export for Prototir (Web)", _export_menu.export_web)
+	add_tool_menu_item("Prototir: Export for Prototir (Download)", _export_menu.export_download)
 	_export_guard = ExportGuard.new()
 	add_export_plugin(_export_guard)
+	_register_settings()
 	call_deferred("_report_setup")
+
+
+## Where a downloadable build learns which prototype it is. A Web export needs none of this: the
+## page it runs in already knows, and the browser path keeps taking its context from there. A
+## download has no page, so the slug has to travel inside the build.
+func _register_settings() -> void:
+	for name in SETTINGS:
+		if not ProjectSettings.has_setting(name):
+			ProjectSettings.set_setting(name, SETTINGS[name])
+		ProjectSettings.set_initial_value(name, SETTINGS[name])
+		ProjectSettings.add_property_info({
+			"name": name,
+			"type": TYPE_STRING,
+			"hint": PROPERTY_HINT_NONE,
+		})
+	ProjectSettings.save()
 
 
 func _exit_tree() -> void:
 	if _export_guard != null:
 		remove_export_plugin(_export_guard)
 		_export_guard = null
+	remove_tool_menu_item("Prototir: Export for Prototir (Web)")
+	remove_tool_menu_item("Prototir: Export for Prototir (Download)")
 	remove_tool_menu_item("Prototir: Validate Web Setup")
+	if _export_menu != null:
+		_export_menu.dispose()
+		_export_menu = null
 	if _setup_dock != null:
 		remove_control_from_docks(_setup_dock)
 		_setup_dock.queue_free()

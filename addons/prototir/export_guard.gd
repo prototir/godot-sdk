@@ -2,8 +2,26 @@
 extends EditorExportPlugin
 
 const Setup := preload("res://addons/prototir/setup.gd")
+const NATIVE_FOLDER := "res://addons/prototir/native/"
+const WEB_FOLDER := "res://addons/prototir/web/"
+
 var _export_path := ""
 var _any_export_path := ""
+
+
+## Ship only the half this build can use.
+##
+## This covers data files under those folders. It cannot cover the GDScript itself: Godot exports
+## scripts through a path that never reaches _export_file or _customize_resource, which was
+## measured, not assumed. Scripts are kept out by the preset exclude filter that the Prototir export
+## buttons maintain (see export_menu.gd), and by prototir.gd loading the native runtime only when
+## the file is actually there.
+func _export_file(path: String, _type: String, features: PackedStringArray) -> void:
+	if features.has("web"):
+		if path.begins_with(NATIVE_FOLDER):
+			skip()
+	elif path.begins_with(WEB_FOLDER):
+		skip()
 
 
 ## Prototir records this id from the uploaded archive, and a running build reports the same id

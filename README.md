@@ -123,6 +123,60 @@ reload with **Import review**. See the
 [Web SDK README](https://github.com/prototir/web-sdk#screenshot-feedback) for the file format and its
 limits.
 
+## Downloadable builds
+
+A Web export takes everything from the page around it: the visitor is already signed in, and the
+shell watches the prototype and reports for it. A download has none of that, so the addon does it
+itself.
+
+Set the slug in **Project Settings > Prototir > Prototype Slug**, or call
+`Prototir.configure("your-slug")` if your game decides it at runtime. Then:
+
+```gdscript
+func _ready() -> void:
+    Prototir.ready()
+    Prototir.pairing_started.connect(_show_code)
+    if not Prototir.is_paired():
+        await Prototir.begin_pairing()
+
+func _show_code(request: Dictionary) -> void:
+    # request.code, request.verification_url, request.qr_svg, request.prototype_title
+    $Code.text = request.code
+```
+
+The addon draws nothing. It cannot know your art direction, your input model, or whether you are in
+VR, so it hands you the code, the link and a ready-made QR and leaves the screen to you.
+
+`ready()`, `event()` and `score()` accumulate one session rather than one request each, and it is
+sent when the window closes. Call `Prototir.flush_session()` yourself at a natural break, such as
+the end of a run. `Prototir.send_feedback("...")` posts a comment as the tester who approved the
+build; no session is needed first, because approving the pairing is the stronger signal.
+
+Pairing works when you run from the editor, so you can build the screen without exporting every
+time. Reporting does not: an F5 run is not a play, and counting it would put your own testing in
+your own numbers.
+
+Nothing here reaches a Web export. **Prototir > Export for Prototir (Web)** adds
+`addons/prototir/native/*` to that preset's exclude filter, and the Download button excludes
+`addons/prototir/web/*`, so each build carries only the transport it can use. You can see and change
+both in **Project > Export > Resources > Exclude**.
+
+## Export buttons
+
+Two entries under **Project > Tools**:
+
+- **Prototir: Export for Prototir (Web)** runs the Web preflight, exports, and zips the result.
+- **Prototir: Export for Prototir (Download)** exports for the machine you are on.
+
+Both produce a ZIP ready to drop on the upload page, and both write `prototir-build.json` beside the
+build. Prototir records that id from the archive, and a running build reports the same id when it
+pairs; a match shows the build running is the build that was uploaded, and nothing more. Both sides
+come from a file you control, so it is not verification, security or anti-cheat. It catches an old
+build being run against a new upload.
+
+Exporting for the other desktop platforms needs their export templates, so those stay in the normal
+Export dialog rather than behind a button that would produce a build nobody can run.
+
 ## Documentation and examples
 
 - [Addon quick reference](addons/prototir/README.md)
@@ -134,7 +188,12 @@ limits.
 
 ```bash
 node tools/test.mjs
+godot --headless --path . --script tests/run_tests.gd
 ```
+
+The first checks structure. The second runs the pairing flow and the session recorder against fake
+HTTP, a fake clock and a fake delay, so a poll loop that waits ten minutes for a deadline finishes
+instantly and nothing touches the network.
 
 A tagged release must additionally open without script errors in Godot 4.3+, produce a release Web
 export, pass the structural validator, and play in the real Prototir sandbox.
