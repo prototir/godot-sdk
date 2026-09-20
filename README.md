@@ -147,6 +147,11 @@ func _show_code(request: Dictionary) -> void:
 The addon draws nothing. It cannot know your art direction, your input model, or whether you are in
 VR, so it hands you the code, the link and a ready-made QR and leaves the screen to you.
 
+Give the tester a way to act on it. A game window has no selectable text, so a printed URL on its
+own leaves them retyping it off a screen: offer `OS.shell_open(request.verification_url)` on
+desktop, and `DisplayServer.clipboard_set(request.code)` or the QR where a browser on this machine
+helps nobody, such as a headset.
+
 `ready()`, `event()` and `score()` accumulate one session rather than one request each. Call
 `Prototir.flush_session()` at a natural break, such as the end of a run. When the window closes
 there is no time to send anything, so the session is written to `user://prototir/pending` instead
