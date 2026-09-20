@@ -53,3 +53,14 @@ jobs:
 
       - name: Run runtime tests
         run: godot --headless --path . --script tests/run_tests.gd
+
+      # --check-only cannot see autoloads, so it reports `Prototir` as undefined in every
+      # example. Running the scene is what actually proves one still works: the script compiles,
+      # the UI builds, and the signals it connects to still exist with those names.
+      - name: Smoke-run the examples
+        run: |
+          set -euo pipefail
+          for scene in examples/*/*.tscn; do
+            echo "running $scene"
+            godot --headless --path . "$scene" --quit-after 120
+          done

@@ -13,7 +13,12 @@
   zip the result, and keep the unused transport out of the pack through the preset exclude filter.
 - Added `prototir/prototype_slug`, `prototir/api_base_url` and `prototir/device_label` project
   settings.
-- Added headless runtime tests (`tests/run_tests.gd`) and a CI job that runs them in Godot.
+- Added a pairing example (`examples/pairing/`): a working pairing screen in one script,
+  building its own UI in code, including opening the approval page and copying the code.
+  A game window has no selectable text, so a printed URL on its own leaves the tester
+  retyping it off a screen.
+- Added headless runtime tests (`tests/run_tests.gd`) and a CI job that runs them in Godot,
+  plus a smoke run of every example scene, which is the only check that sees the autoload.
 
 ## 0.1.0 - 2026-08-26
 

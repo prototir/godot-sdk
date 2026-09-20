@@ -152,6 +152,10 @@ own leaves them retyping it off a screen: offer `OS.shell_open(request.verificat
 desktop, and `DisplayServer.clipboard_set(request.code)` or the QR where a browser on this machine
 helps nobody, such as a headset.
 
+`examples/pairing/` is a working version of all of that in one script, building its own UI in code
+so it drops into any scene without wiring. Run it, then rebuild it in whatever UI your game already
+uses.
+
 `ready()`, `event()` and `score()` accumulate one session rather than one request each. Call
 `Prototir.flush_session()` at a natural break, such as the end of a run. When the window closes
 there is no time to send anything, so the session is written to `user://prototir/pending` instead
