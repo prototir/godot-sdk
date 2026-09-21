@@ -130,15 +130,20 @@ func _recorder_tests() -> void:
 	_check(not strict.has_anything_to_report())
 	_check_eq(strict.snapshot()["eventCount"], 0)
 
-	_current = "the session keeps the best score, not the last"
+	_current = "a play that never scored reports no score, because zero is a real score"
 	var scored := SessionRecorder.new(clock.now)
-	_check_eq(scored.snapshot()["hasScore"], false)
-	_check_eq(scored.snapshot()["score"], 0)
+	_check(not scored.snapshot().has("score"))
+
+	_current = "the session keeps the best score, not the last"
 	scored.score(70.0)
 	scored.score(120.4)
 	scored.score(30.0)
-	_check_eq(scored.snapshot()["hasScore"], true)
 	_check_eq(scored.snapshot()["score"], 120)
+
+	_current = "a real score of zero is still reported"
+	var zeroed := SessionRecorder.new(clock.now)
+	zeroed.score(0.0)
+	_check_eq(zeroed.snapshot()["score"], 0)
 
 	_current = "a score that is not a number is ignored rather than reported"
 	scored.score(NAN)
@@ -150,6 +155,11 @@ func _recorder_tests() -> void:
 	only_score.score(10.0)
 	_check(not only_score.has_anything_to_report())
 
+	_current = "a session the server has not seen does not claim an id"
+	# The server models it as an optional GUID: an empty string is unparseable, it answers 500,
+	# and the queue treats 5xx as retry-later, so every session piles up and none are sent.
+	_check(not counted.snapshot().has("sessionId"))
+
 	_current = "the session id travels in the payload so a second flush updates one row"
 	counted.session_id = "sess_123"
 	_check_eq(counted.snapshot()["sessionId"], "sess_123")
@@ -159,7 +169,7 @@ func _recorder_tests() -> void:
 	_check(not counted.has_anything_to_report())
 	_check_eq(counted.snapshot()["eventCount"], 0)
 	_check_eq(counted.snapshot()["signals"], [])
-	_check_eq(counted.snapshot()["sessionId"], "")
+	_check(not counted.snapshot().has("sessionId"))
 
 
 # --- pairing flow -------------------------------------------------------------------------------

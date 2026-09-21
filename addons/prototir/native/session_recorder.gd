@@ -89,14 +89,20 @@ func snapshot() -> Dictionary:
 	for name in ordered:
 		signals.append({"name": name, "count": _signals[name]})
 
-	return {
+	# Exactly the fields the server's contract has, and only the ones this session can fill.
+	# It models the id as an optional GUID and the score as an optional number, so an
+	# always-present "sessionId": "" is unparseable, and an always-present "score": 0 would put a
+	# nought on a leaderboard for every play that never scored.
+	var payload := {
 		"durationMs": duration,
 		"eventCount": _event_count,
-		"score": int(round(_score)) if _has_score else 0,
-		"hasScore": _has_score,
 		"signals": signals,
-		"sessionId": session_id,
 	}
+	if _has_score:
+		payload["score"] = int(round(_score))
+	if not session_id.is_empty():
+		payload["sessionId"] = session_id
+	return payload
 
 
 func reset() -> void:

@@ -4,6 +4,10 @@
 
 - Added a native transport for downloadable builds: device-code pairing, a stored per-prototype
   token, one accumulated session per play, and comments posted as the tester who approved the build.
+- A session is reported with the exact fields the server's contract has: an always-present
+  `"sessionId": ""` could not be parsed and made the endpoint answer 500, which the queue
+  treats as retry-later, so every session piled up on disk and none were sent. An
+  always-present `"score": 0` would also have scored every play that never scored.
 - `configure()` now drains the session queue. The drain ran only in `_ready`, before a runtime
   `configure()` could say where to send, so a build that learned its prototype at runtime kept
   every session it ever recorded and sent none of them.
