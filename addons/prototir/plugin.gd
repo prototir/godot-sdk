@@ -10,7 +10,8 @@ const ExportMenu := preload("res://addons/prototir/export_menu.gd")
 
 const SETTINGS := {
 	"prototir/prototype_slug": "",
-	"prototir/api_base_url": "https://prototir.com/api",
+	# Kept in step with NativeRuntime.DEFAULT_API_BASE, which explains the choice of host.
+	"prototir/api_base_url": "https://api.prototir.com/api",
 	"prototir/device_label": "",
 }
 

@@ -12,7 +12,8 @@
 - Added **Prototir: Export for Prototir (Web)** and **(Download)** to Project > Tools. Both export,
   zip the result, and keep the unused transport out of the pack through the preset exclude filter.
 - Added `prototir/prototype_slug`, `prototir/api_base_url` and `prototir/device_label` project
-  settings.
+  settings. The endpoint defaults to `https://api.prototir.com/api`; `prototir.com/api` serves
+  no `/api` path, so a downloadable build could not reach Prototir at all.
 - Added a pairing example (`examples/pairing/`): a working pairing screen in one script,
   building its own UI in code, including opening the approval page and copying the code.
   A game window has no selectable text, so a printed URL on its own leaves the tester

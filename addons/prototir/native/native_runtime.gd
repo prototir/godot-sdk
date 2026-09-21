@@ -15,7 +15,14 @@ const Transport := preload("res://addons/prototir/native/native_transport.gd")
 const SLUG_SETTING := "prototir/prototype_slug"
 const API_BASE_SETTING := "prototir/api_base_url"
 const DEVICE_LABEL_SETTING := "prototir/device_label"
-const DEFAULT_API_BASE := "https://prototir.com/api"
+## Where a downloadable build talks to Prototir.
+##
+## Its own hostname, not prototir.com/api: the site serves no /api path, so that default reached
+## nothing and the whole native path was dead in production until a real build was run against it.
+## Not the Azure hostname behind it either, which carries a generated id that changes if the app is
+## recreated. This URL ships inside executables that can never be updated, so it has to outlive the
+## infrastructure under it.
+const DEFAULT_API_BASE := "https://api.prototir.com/api"
 const BUILD_ID_FILE := "prototir-build.json"
 const REVOKED_MESSAGE := "Access to this build was withdrawn. Pair it again."
 

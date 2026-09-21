@@ -135,6 +135,31 @@ try {
     );
   }
 
+  // Where a downloadable build talks to Prototir. It is written in two files and it is compiled
+  // into executables that can never be updated, so drift between them, or a slip back to a host
+  // that serves no /api, is not something to discover from a creator's bug report.
+  const nativeRuntime = readFileSync(
+    new URL("../addons/prototir/native/native_runtime.gd", import.meta.url),
+    "utf8",
+  );
+  const defaultBase = /DEFAULT_API_BASE := "([^"]+)"/.exec(nativeRuntime)?.[1];
+  const settingBase = /"prototir\/api_base_url": "([^"]+)"/.exec(editorPlugin)?.[1];
+  assert.ok(defaultBase, "native_runtime.gd has no DEFAULT_API_BASE");
+  assert.equal(
+    settingBase,
+    defaultBase,
+    "the project-setting default and DEFAULT_API_BASE must name the same endpoint",
+  );
+  assert.ok(
+    !/^https:\/\/prototir\.com\//.test(defaultBase),
+    "prototir.com serves no /api path; the API has its own hostname",
+  );
+  assert.ok(
+    !/azurewebsites\.net/.test(defaultBase),
+    "the generated Azure hostname changes if the app is recreated, and this URL ships inside " +
+      "executables that cannot be updated",
+  );
+
   console.log("Godot addon and protocol checks passed.");
 } finally {
   rmSync(root, { recursive: true, force: true });
