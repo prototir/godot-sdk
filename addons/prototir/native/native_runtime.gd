@@ -176,6 +176,14 @@ func begin_pairing() -> Dictionary:
 		_tokens.write(_slug, str(result.get("token", "")))
 		state = State.PAIRED
 		pairing_succeeded.emit()
+
+		# This moment is the whole reason anything can be sent: until the token existed, every
+		# flush and every drain gave up immediately. Waiting for the next heartbeat instead would
+		# leave the play the tester just finished unsent for up to 30 seconds, and a tester who
+		# quits in that window has it written to the queue and reported only on the next launch,
+		# which is how a creator watches their first play never arrive.
+		send_pending()
+		flush_session()
 		return result
 
 	state = State.NOT_PAIRED if outcome == PairingFlow.Outcome.CANCELLED else State.FAILED
