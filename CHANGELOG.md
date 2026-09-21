@@ -4,6 +4,9 @@
 
 - Added a native transport for downloadable builds: device-code pairing, a stored per-prototype
   token, one accumulated session per play, and comments posted as the tester who approved the build.
+- `configure()` now drains the session queue. The drain ran only in `_ready`, before a runtime
+  `configure()` could say where to send, so a build that learned its prototype at runtime kept
+  every session it ever recorded and sent none of them.
 - Added an on-disk session queue: a play is written down when the window closes and sent at the
   next launch, so closing the game or being offline no longer loses it.
 - Added `Prototir.configure`, `is_paired`, `begin_pairing`, `cancel_pairing`, `unpair`,

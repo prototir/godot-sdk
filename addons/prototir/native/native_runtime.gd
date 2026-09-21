@@ -75,6 +75,12 @@ func configure(slug: String, api_base := "", device_label := "") -> void:
 	if is_paired():
 		state = State.PAIRED
 
+	# The drain in _ready has already been and gone, and it gave up because nothing knew where to
+	# send yet. This is the first moment that is true, so the queue gets its chance here too;
+	# otherwise a build that learns its prototype at runtime keeps every session it ever recorded
+	# and sends none of them. Cheap when the queue is empty.
+	send_pending()
+
 
 func is_paired() -> bool:
 	return not _token().is_empty()
