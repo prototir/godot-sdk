@@ -14,7 +14,7 @@ unsupported builds are caught before upload.
 ## Install
 
 Download the `addons/prototir` directory from the
-[v0.1.0 release](https://github.com/prototir/godot-sdk/releases/tag/v0.1.0) and copy it into your
+[v0.2.0 release](https://github.com/prototir/godot-sdk/releases/tag/v0.2.0) and copy it into your
 project. Then:
 
 1. Enable **Prototir SDK** under **Project Settings > Plugins**.

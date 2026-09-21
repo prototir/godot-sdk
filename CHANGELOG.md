@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 - 2026-09-21
 
 - Added a native transport for downloadable builds: device-code pairing, a stored per-prototype
   token, one accumulated session per play, and comments posted as the tester who approved the build.

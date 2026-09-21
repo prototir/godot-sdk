@@ -48,7 +48,19 @@ try {
     new URL("../addons/prototir/plugin.cfg", import.meta.url),
     "utf8",
   );
-  assert.match(plugin, /version="0\.1\.0"/);
+  // The addon distributes by tag, so the version in plugin.cfg is what a creator sees for the
+  // release they downloaded. Checked against the changelog's newest heading rather than pinned to
+  // a literal: a hardcoded version only says "nobody has released since", and is fixed by editing
+  // the number, which proves nothing and hides a genuine mismatch.
+  const pluginVersion = /version="([^"]+)"/.exec(plugin)?.[1];
+  const changelog = readFileSync(new URL("../CHANGELOG.md", import.meta.url), "utf8");
+  const newestRelease = /^## (\d+\.\d+\.\d+)/m.exec(changelog)?.[1];
+  assert.ok(pluginVersion, "plugin.cfg has no version");
+  assert.equal(
+    pluginVersion,
+    newestRelease,
+    "plugin.cfg and the changelog's newest release must name the same version",
+  );
   const sampleScene = readFileSync(
     new URL("../examples/basic/main.tscn", import.meta.url),
     "utf8",
