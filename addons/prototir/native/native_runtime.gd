@@ -26,6 +26,14 @@ const DEFAULT_API_BASE := "https://api.prototir.com/api"
 const BUILD_ID_FILE := "prototir-build.json"
 const REVOKED_MESSAGE := "Access to this build was withdrawn. Pair it again."
 
+## How often a play in progress is reported.
+##
+## Without this the only moment a session was ever sent was the next launch, so a tester who plays
+## once and never opens the build again reported nothing at all, which is the most common way a
+## prototype gets tried. Repeating costs no duplicates: the first report returns an id the rest
+## carry, so the server updates one row.
+const FLUSH_INTERVAL_SECONDS := 30.0
+
 enum State { NOT_PAIRED, REQUESTING, AWAITING_APPROVAL, PAIRED, FAILED }
 
 ## Emitted when a pairing code is ready to show. The SDK never draws it: it cannot know the game
@@ -61,6 +69,15 @@ func _ready() -> void:
 	if is_paired():
 		state = State.PAIRED
 	send_pending()
+
+	var heartbeat := Timer.new()
+	heartbeat.wait_time = FLUSH_INTERVAL_SECONDS
+	heartbeat.autostart = true
+	# Keeps reporting while the tree is paused, so a game sitting on its own pause menu still
+	# accounts for the play it is in the middle of.
+	heartbeat.process_mode = Node.PROCESS_MODE_ALWAYS
+	heartbeat.timeout.connect(flush_session)
+	add_child(heartbeat)
 
 
 ## Overrides the project settings, for a game that decides its slug at runtime.
@@ -219,6 +236,10 @@ func read_build_id() -> String:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_EXIT_TREE:
 		_store_session()
+	# Alt-tabbing away is where a play most often ends for good, and the tree is still running to
+	# carry the request.
+	elif what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		flush_session()
 
 
 ## A session that is never sent is a play the creator never sees, and quitting is the normal way a

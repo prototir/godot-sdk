@@ -156,11 +156,15 @@ helps nobody, such as a headset.
 so it drops into any scene without wiring. Run it, then rebuild it in whatever UI your game already
 uses.
 
-`ready()`, `event()` and `score()` accumulate one session rather than one request each. Call
-`Prototir.flush_session()` at a natural break, such as the end of a run. When the window closes
-there is no time to send anything, so the session is written to `user://prototir/pending` instead
-and sent the next time the build starts. That covers the tester playing on a train as well: sessions
-carry their server id, so one arriving late updates its row rather than counting a second play. `Prototir.send_feedback("...")` posts a comment as the tester who approved the
+`ready()`, `event()` and `score()` accumulate one session rather than one request each, and the
+addon reports it for you every 30 seconds while the game runs, and again when the window loses
+focus. You do not have to call anything. `Prototir.flush_session()` is there for a natural break,
+such as the end of a run, if you want the numbers to land sooner.
+
+Repeating costs nothing: the first report returns an id the rest carry, so the server updates one
+row rather than counting a play per report. When the window closes there is no time left to send,
+so whatever the last report missed is written to `user://prototir/pending` and goes out the next
+time the build starts. That covers the tester playing on a train as well. `Prototir.send_feedback("...")` posts a comment as the tester who approved the
 build; no session is needed first, because approving the pairing is the stronger signal.
 
 Pairing works when you run from the editor, so you can build the screen without exporting every
