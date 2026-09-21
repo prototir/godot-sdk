@@ -172,6 +172,16 @@ try {
       "executables that cannot be updated",
   );
 
+  // The name of the file Prototir injects at upload. The server picks the name and the SDK reads
+  // it, in different repositories, and a disagreement between them is silent: the build simply
+  // never finds its slug and the creator is told to configure it by hand, exactly as before the
+  // feature existed. Pinning the literal here is what turns that into a failing build.
+  assert.match(
+    nativeRuntime,
+    /const INJECTED_FILE := "prototir-prototype\.json"/,
+    "the injected slug file must be named prototir-prototype.json, which is what the API writes",
+  );
+
   console.log("Godot addon and protocol checks passed.");
 } finally {
   rmSync(root, { recursive: true, force: true });

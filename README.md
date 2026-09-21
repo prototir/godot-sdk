@@ -129,8 +129,15 @@ A Web export takes everything from the page around it: the visitor is already si
 shell watches the prototype and reports for it. A download has none of that, so the addon does it
 itself.
 
-Set the slug in **Project Settings > Prototir > Prototype Slug**, or call
-`Prototir.configure("your-slug")` if your game decides it at runtime. Then:
+You do not configure the slug. Prototir writes it into the .zip as you upload the build, into a
+`prototir-prototype.json` beside the executable, and the addon reads it from there. The slug does
+not exist until the prototype does, so there was never a value you could have put in your first
+export.
+
+Override it in **Project Settings > Prototir > Prototype Slug** when you need to: a build you ship
+outside Prototir, or an installer Prototir cannot write into. Call `Prototir.configure("your-slug")`
+if your game decides it at runtime. The injected slug wins over the project setting, because it
+travelled with that exact download. Then:
 
 ```gdscript
 func _ready() -> void:

@@ -24,6 +24,8 @@ const DEVICE_LABEL_SETTING := "prototir/device_label"
 ## infrastructure under it.
 const DEFAULT_API_BASE := "https://api.prototir.com/api"
 const BUILD_ID_FILE := "prototir-build.json"
+## Written beside the executable by Prototir when the build is uploaded. See read_injected_slug().
+const INJECTED_FILE := "prototir-prototype.json"
 const REVOKED_MESSAGE := "Access to this build was withdrawn. Pair it again."
 
 ## How often a play in progress is reported.
@@ -69,10 +71,6 @@ func _ready() -> void:
 	if is_paired():
 		state = State.PAIRED
 	send_pending()
-	# Says which build this is, so a download-only prototype stops being inert the first time
-	# anyone runs it. Needs no account and no pairing: the question is whether this is the build
-	# that was uploaded, which nobody has to vouch for.
-	handshake()
 
 	var heartbeat := Timer.new()
 	heartbeat.wait_time = FLUSH_INTERVAL_SECONDS
@@ -96,13 +94,11 @@ func configure(slug: String, api_base := "", device_label := "") -> void:
 	if is_paired():
 		state = State.PAIRED
 
-	# Everything in _ready has already been and gone, and it gave up because nothing knew which
-	# prototype this was. This is the first moment that is true, so the queue and the handshake
-	# both get their chance here too; otherwise a build that learns its prototype at runtime never
-	# reports a session and never switches its prototype on. Both are cheap when there is nothing
-	# to do.
+	# _ready has already been and gone, and it gave up because nothing knew which prototype this
+	# was. This is the first moment that is true, so the queue gets its chance here too; otherwise
+	# a build that learns its prototype at runtime never reports a session at all. Cheap when
+	# there is nothing to send.
 	send_pending()
-	handshake()
 
 
 func is_paired() -> bool:
@@ -236,6 +232,24 @@ func read_build_id() -> String:
 	return str(PairingFlow.parse_object(FileAccess.get_file_as_string(path)).get("buildId", ""))
 
 
+## The slug Prototir wrote into the build when it was uploaded.
+##
+## Why this outranks the project setting: the slug does not exist until the prototype does, and the
+## prototype does not exist until a build has been uploaded to it, so the first export a creator
+## makes cannot contain the right value. Prototir knows it at upload and writes it in, which means
+## a downloaded build reports back with nothing set by hand. Where the two disagree, the one that
+## travelled with this exact download is the one describing this exact download.
+##
+## Empty for anything unreadable: a build whose slug file is missing or damaged falls back to the
+## project setting, which is how every build behaved before.
+func read_injected_slug() -> String:
+	var path := OS.get_executable_path().get_base_dir().path_join(INJECTED_FILE)
+	if not FileAccess.file_exists(path):
+		return ""
+	var parsed := PairingFlow.parse_object(FileAccess.get_file_as_string(path))
+	return str(parsed.get("slug", "")).strip_edges()
+
+
 ## Both notifications, because which one arrives depends on how the game was closed and on whether
 ## the project accepts quit automatically. Storing twice is prevented by the flag rather than by
 ## guessing which one fires.
@@ -257,33 +271,6 @@ func _store_session() -> void:
 	if not _session.has_anything_to_report() or _token().is_empty():
 		return
 	_queue.store(_session.snapshot())
-
-
-## Tells Prototir which build this is (D43 §16.5.11).
-##
-## Deliberately quiet on success: it concerns the creator, not the player. A build that is not the
-## uploaded one says so in the log, because the alternative is a creator watching their prototype
-## do nothing with nothing to search for.
-func handshake() -> void:
-	if _slug.is_empty():
-		return
-	var response: Dictionary = await _http.post_json(
-		_url("handshake"), JSON.stringify({"buildId": read_build_id()}), "")
-	if int(response.get("status", 0)) != 200:
-		# Offline at launch is ordinary. The next launch asks again, and so does every other copy
-		# of this build that anyone runs.
-		return
-
-	var result := PairingFlow.parse_object(str(response.get("body", "")))
-	if bool(result.get("verified", false)):
-		return
-	if str(result.get("reason", "")) == "no_build_id":
-		push_warning("Prototir: this build carries no build id, so the prototype cannot be "
-			+ "switched on. Export it through Project > Tools > Prototir: Export for Prototir "
-			+ "(Download) rather than zipping it by hand.")
-	else:
-		push_warning("Prototir: this build is not the one uploaded to Prototir, so the prototype "
-			+ "stays inactive. Upload this exact build, or run the build you uploaded.")
 
 
 ## Sends what earlier runs left behind. Anything the server takes, or refuses in a way that will not
@@ -313,6 +300,11 @@ func send_pending() -> void:
 
 func _read_project_settings() -> void:
 	_slug = str(ProjectSettings.get_setting(SLUG_SETTING, "")).strip_edges()
+	# The injected slug outranks the project setting, and everything else the creator configured
+	# is still theirs: an api_base_url pointing at a local Prototir is the reason someone edits it.
+	var injected := read_injected_slug()
+	if not injected.is_empty():
+		_slug = injected
 	var base := str(ProjectSettings.get_setting(API_BASE_SETTING, "")).strip_edges()
 	_api_base = DEFAULT_API_BASE if base.is_empty() else base
 	_device_label = str(ProjectSettings.get_setting(DEVICE_LABEL_SETTING, "")).strip_edges()
