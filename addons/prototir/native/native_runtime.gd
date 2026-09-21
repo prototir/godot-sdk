@@ -69,6 +69,10 @@ func _ready() -> void:
 	if is_paired():
 		state = State.PAIRED
 	send_pending()
+	# Says which build this is, so a download-only prototype stops being inert the first time
+	# anyone runs it. Needs no account and no pairing: the question is whether this is the build
+	# that was uploaded, which nobody has to vouch for.
+	handshake()
 
 	var heartbeat := Timer.new()
 	heartbeat.wait_time = FLUSH_INTERVAL_SECONDS
@@ -251,6 +255,33 @@ func _store_session() -> void:
 	if not _session.has_anything_to_report() or _token().is_empty():
 		return
 	_queue.store(_session.snapshot())
+
+
+## Tells Prototir which build this is (D43 §16.5.11).
+##
+## Deliberately quiet on success: it concerns the creator, not the player. A build that is not the
+## uploaded one says so in the log, because the alternative is a creator watching their prototype
+## do nothing with nothing to search for.
+func handshake() -> void:
+	if _slug.is_empty():
+		return
+	var response: Dictionary = await _http.post_json(
+		_url("handshake"), JSON.stringify({"buildId": read_build_id()}), "")
+	if int(response.get("status", 0)) != 200:
+		# Offline at launch is ordinary. The next launch asks again, and so does every other copy
+		# of this build that anyone runs.
+		return
+
+	var result := PairingFlow.parse_object(str(response.get("body", "")))
+	if bool(result.get("verified", false)):
+		return
+	if str(result.get("reason", "")) == "no_build_id":
+		push_warning("Prototir: this build carries no build id, so the prototype cannot be "
+			+ "switched on. Export it through Project > Tools > Prototir: Export for Prototir "
+			+ "(Download) rather than zipping it by hand.")
+	else:
+		push_warning("Prototir: this build is not the one uploaded to Prototir, so the prototype "
+			+ "stays inactive. Upload this exact build, or run the build you uploaded.")
 
 
 ## Sends what earlier runs left behind. Anything the server takes, or refuses in a way that will not

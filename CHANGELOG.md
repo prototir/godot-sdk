@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- A downloadable build now tells Prototir which build it is at launch, so a download-only
+  prototype switches on the first time anyone runs it. This used to require pairing, which
+  asked a creator to link a build to their account before their own download counted for
+  anything, and made every prototype a separate chore. Pairing is about identity; this is
+  about which build is running, and they are now separate.
+- A build that is not the uploaded one, or that carries no build id because it was zipped by
+  hand, says so in the log rather than leaving a creator with a prototype that does nothing.
+
 ## 0.2.0 - 2026-09-21
 
 - Added a native transport for downloadable builds: device-code pairing, a stored per-prototype
