@@ -215,6 +215,23 @@ func cancel_pairing() -> void:
 		_native.cancel_pairing()
 
 
+## Show a ready-made pairing screen over the running game, and return it.
+##
+## The signals above remain the supported way to draw your own, and this changes nothing about
+## them. It exists because "draw it yourself" meant every creator had to build a screen before
+## collecting a single session, with only an unstyled example to copy. Ignoring it costs nothing.
+##
+## Returns null on a Web export, which has no pairing to do: the page already knows the visitor.
+func show_pairing_screen() -> Node:
+	if _native == null:
+		return null
+	# load(), never preload(): the whole native folder is stripped from a Web export, and a
+	# preload would make the addon fail to resolve there instead of simply doing nothing.
+	var screen: Node = load("res://addons/prototir/native/ui/pairing_screen.gd").new()
+	get_tree().root.add_child(screen)
+	return screen
+
+
 ## Forget the stored token, so this build pairs again next time.
 func unpair() -> void:
 	if _native != null:

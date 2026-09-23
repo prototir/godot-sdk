@@ -204,6 +204,25 @@ try {
     "approving a pairing must report the session in progress rather than wait for a heartbeat",
   );
 
+  // The pairing screen is native-only. Under native/ it is stripped from a Web export like the
+  // rest; anywhere else it would ship into a bundle that has nothing to pair, and drag a
+  // CanvasLayer and a theme along with it.
+  assert.ok(
+    existsSync(new URL("../addons/prototir/native/ui/pairing_screen.gd", import.meta.url)),
+    "the pairing screen must live under native/, which the Web export strips",
+  );
+
+  // load(), never preload(): a preload of a stripped file makes the autoload fail to resolve on
+  // Web, which is the failure the autoload check above exists to prevent.
+  assert.ok(
+    /load\(\s*"res:\/\/addons\/prototir\/native\/ui\/pairing_screen\.gd"\s*\)/.test(autoload),
+    "show_pairing_screen must load() the screen at runtime",
+  );
+  assert.ok(
+    !/preload\(\s*"res:\/\/addons\/prototir\/native\/ui\//.test(autoload),
+    "the autoload must not preload the pairing screen",
+  );
+
   console.log("Godot addon and protocol checks passed.");
 } finally {
   rmSync(root, { recursive: true, force: true });

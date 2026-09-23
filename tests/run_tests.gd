@@ -62,6 +62,7 @@ func _run_all() -> void:
 	await _pairing_tests()
 	_queue_tests()
 	_export_menu_tests()
+	_pairing_screen_tests()
 
 
 # --- session recorder ---------------------------------------------------------------------------
@@ -433,6 +434,55 @@ func _export_menu_tests() -> void:
 	_current = "a re-export leaves nothing of the previous one behind"
 	menu._remove_tree(folder)
 	_check(not DirAccess.dir_exists_absolute(folder))
+
+
+# --- pairing screen -----------------------------------------------------------------------------
+
+## The screen itself cannot be instantiated here: it talks to the Prototir autoload, and --script
+## replaces the main loop, so no autoload exists. What is worth checking is what would otherwise
+## be checked only by a creator running a build: that both files parse at all, and that the one
+## engine call the design leans on actually does what it is assumed to do.
+func _pairing_screen_tests() -> void:
+	_current = "the pairing screen and its theme parse"
+	var screen := load("res://addons/prototir/native/ui/pairing_screen.gd")
+	var theme_script := load("res://addons/prototir/native/ui/prototir_theme.gd")
+	_check(screen != null)
+	_check(theme_script != null)
+
+	_current = "the theme carries the webapp's own colours, not Godot defaults"
+	var theme: Theme = theme_script.build()
+	_check(theme.get_stylebox("panel", "PanelContainer") != null)
+	_check_eq(theme.get_color("font_color", "Label"), Color("#f4f4f5"))
+	_check_eq(theme_script.ACCENT, Color("#60a5fa"))
+
+	# The QR is the whole reason pairing is bearable on a headset or a TV, where typing a code is
+	# the worst part of the flow. It arrives as SVG text, so rasterising one from a string has to
+	# work or the screen silently shows no QR at all.
+	_current = "a QR arrives as SVG text and rasterises"
+	var svg := '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><rect width="8" height="8" fill="#fff"/><rect x="1" y="1" width="3" height="3"/></svg>'
+	var image := Image.new()
+	_check_eq(image.load_svg_from_string(svg, 2.0), OK)
+	_check(image.get_width() > 0)
+	_check(ImageTexture.create_from_image(image) != null)
+
+	# _ready() cannot run without the autoload, but the UI is built in a method of its own, so the
+	# construction can. This is where a wrong enum name or a stylebox override against a type that
+	# does not exist would otherwise reach a creator's build before anyone noticed.
+	_current = "the screen builds its interface"
+	var panel = screen.new()
+	panel._build()
+	_check(panel._heading != null)
+	_check(panel._code_label != null)
+	_check(panel._qr != null)
+	_check_eq(panel._code_panel.visible, false)
+	_check_eq(panel._qr.visible, false)
+
+	_current = "a QR that arrives is drawn, and its absence is not an error"
+	panel._show_qr(svg)
+	_check_eq(panel._qr.visible, true)
+	panel._show_qr("")
+	_check_eq(panel._qr.visible, false)
+	panel.free()
 
 
 # --- harness ------------------------------------------------------------------------------------

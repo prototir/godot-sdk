@@ -139,9 +139,24 @@ outside Prototir, or an installer Prototir cannot write into. Call `Prototir.con
 if your game decides it at runtime. The injected slug wins over the project setting, because it
 travelled with that exact download. Then:
 
+The quickest version is one line. It shows a screen that looks like Prototir, over whatever your
+game is already drawing, and handles every state of the flow:
+
 ```gdscript
 func _ready() -> void:
     Prototir.ready()
+    if not Prototir.is_paired():
+        Prototir.show_pairing_screen()
+```
+
+It draws the code large, rasterises the QR, offers **Open in browser** and **Copy code**, and
+closes itself once the tester approves. Use it as it is, restyle it, or ignore it entirely.
+
+**Drawing your own is still fully supported**, and is the right answer as soon as your game has a
+look of its own. The addon hands you everything and takes no opinion:
+
+```gdscript
+func _ready() -> void:
     Prototir.pairing_started.connect(_show_code)
     if not Prototir.is_paired():
         await Prototir.begin_pairing()
@@ -151,17 +166,14 @@ func _show_code(request: Dictionary) -> void:
     $Code.text = request.code
 ```
 
-The addon draws nothing. It cannot know your art direction, your input model, or whether you are in
-VR, so it hands you the code, the link and a ready-made QR and leaves the screen to you.
-
 Give the tester a way to act on it. A game window has no selectable text, so a printed URL on its
 own leaves them retyping it off a screen: offer `OS.shell_open(request.verification_url)` on
 desktop, and `DisplayServer.clipboard_set(request.code)` or the QR where a browser on this machine
-helps nobody, such as a headset.
+helps nobody, such as a headset. `request.qr_svg` is SVG text, which
+`Image.load_svg_from_string()` turns into a texture.
 
-`examples/pairing/` is a working version of all of that in one script, building its own UI in code
-so it drops into any scene without wiring. Run it, then rebuild it in whatever UI your game already
-uses.
+`examples/pairing/` builds the same flow with unstyled controls, if you would rather start from
+something plain than restyle the shipped screen.
 
 `ready()`, `event()` and `score()` accumulate one session rather than one request each, and the
 addon reports it for you every 30 seconds while the game runs, and again when the window loses
