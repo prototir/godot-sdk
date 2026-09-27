@@ -92,8 +92,10 @@ another project are refused on import), a `build` recorded with the feedback, an
 overlay. `launcher` is `auto` (Prototir draws the control on its own surfaces), `watermark` (always
 show the Prototir mark and its menu) or `host` (draw nothing). `theme` is `auto`, `light` or `dark`.
 
-Off Prototir the mark opens the same menu testers see in a web build - **Screenshot & comment**,
-**Comments**, **Open on Prototir** - so the experience does not change between web and native.
+Off Prototir the mark opens an icon menu with **Screenshot** and **Review files** while offline,
+or **Screenshot** and **Comments** when connected to Prototir. **Open on Prototir** appears when
+configured. Choosing Screenshot captures the frame and opens the focused composer; Review files
+contains import and export.
 
 Connect `review_visibility_changed` and pause while the panel is open, otherwise the game keeps
 consuming the input the tester is typing into their comment.
