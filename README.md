@@ -224,12 +224,16 @@ Export dialog rather than behind a button that would produce a build nobody can 
 
 ```bash
 node tools/test.mjs
-godot --headless --path . --script tests/run_tests.gd
+node tools/test-godot-runner.mjs
+node tools/run-godot.mjs --headless --path . --import
+node tools/run-godot.mjs --headless --path . tests/validate_scripts.tscn --quit-after 600
+node tools/run-godot.mjs --headless --path . tests/run_tests.tscn --quit-after 600
 ```
 
-The first checks structure. The second runs the pairing flow and the session recorder against fake
-HTTP, a fake clock and a fake delay, so a poll loop that waits ten minutes for a deadline finishes
-instantly and nothing touches the network.
+The first checks structure. The project scenes validate every script with the `Prototir` autoload
+available, then run the pairing flow, session recorder, and built-in pairing UI against fake HTTP,
+a fake clock, and fake signals. Nothing requests a real pairing code. Set `GODOT_BIN` to the engine
+executable if it is not on PATH. The runner fails on script errors even if Godot exits zero.
 
 A tagged release must additionally open without script errors in Godot 4.3+, produce a release Web
 export, pass the structural validator, and play in the real Prototir sandbox.

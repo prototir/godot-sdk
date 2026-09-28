@@ -20,11 +20,16 @@ jobs:
         with:
           node-version: 22
       - run: node tools/test.mjs
+      - run: node tools/test-godot-runner.mjs
 
   runtime:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
 
       # The addon is GDScript, so the only thing that can tell us it still compiles and still
       # behaves is Godot itself. The node job above checks structure; this one runs the code.
@@ -41,18 +46,15 @@ jobs:
       # A first headless open imports the project. Without it the very first --script run races
       # the import and fails on resources that do not exist yet.
       - name: Import project
-        run: godot --headless --path . --import
+        run: node tools/run-godot.mjs --headless --path . --import
 
-      - name: Parse every addon script
-        run: |
-          set -euo pipefail
-          for script in $(find addons tests -name '*.gd'); do
-            echo "checking $script"
-            godot --headless --check-only --script "$script"
-          done
+      # Standalone --check-only/--script replaces the project main loop, so scripts that use
+      # the Prototir autoload fail there. Load every script in a normal project scene instead.
+      - name: Validate every project script
+        run: node tools/run-godot.mjs --headless --path . tests/validate_scripts.tscn --quit-after 600
 
       - name: Run runtime tests
-        run: godot --headless --path . --script tests/run_tests.gd
+        run: node tools/run-godot.mjs --headless --path . tests/run_tests.tscn --quit-after 600
 
       # --check-only cannot see autoloads, so it reports `Prototir` as undefined in every
       # example. Running the scene is what actually proves one still works: the script compiles,
@@ -62,5 +64,5 @@ jobs:
           set -euo pipefail
           for scene in examples/*/*.tscn; do
             echo "running $scene"
-            godot --headless --path . "$scene" --quit-after 120
+            node tools/run-godot.mjs --headless --path . "$scene" --quit-after 120
           done

@@ -1,8 +1,8 @@
-extends SceneTree
+extends Node
 
-## Engine-free tests for the native transport, run headless:
+## Tests for the native transport and pairing UI, run headless in the configured project:
 ##
-##   godot --headless --path . --script tests/run_tests.gd
+##   node tools/run-godot.mjs --headless --path . tests/run_tests.tscn --quit-after 600
 ##
 ## The two scripts under test take their HTTP, their delay and their clock as arguments precisely
 ## so this file can hold all three still. Nothing here touches the network, and a test that waits
@@ -51,10 +51,15 @@ class FakeDelay:
 		_clock.ms += int(seconds * 1000.0)
 
 
-func _initialize() -> void:
+func _ready() -> void:
+	# Let the project finish entering the tree before exercising UI nodes and autoload signals.
+	_run_tests.call_deferred()
+
+
+func _run_tests() -> void:
 	await _run_all()
 	print("\n%d checks, %d failed" % [_checks, _failures])
-	quit(1 if _failures > 0 else 0)
+	get_tree().quit(1 if _failures > 0 else 0)
 
 
 func _run_all() -> void:
@@ -438,10 +443,8 @@ func _export_menu_tests() -> void:
 
 # --- pairing screen -----------------------------------------------------------------------------
 
-## The screen itself cannot be instantiated here: it talks to the Prototir autoload, and --script
-## replaces the main loop, so no autoload exists. What is worth checking is what would otherwise
-## be checked only by a creator running a build: that both files parse at all, and that the one
-## engine call the design leans on actually does what it is assumed to do.
+## The project scene provides the real autoload. Exercise both construction and signal wiring,
+## without requesting a pairing code or touching the network.
 func _pairing_screen_tests() -> void:
 	_current = "the pairing screen and its theme parse"
 	var screen := load("res://addons/prototir/native/ui/pairing_screen.gd")
@@ -465,17 +468,25 @@ func _pairing_screen_tests() -> void:
 	_check(image.get_width() > 0)
 	_check(ImageTexture.create_from_image(image) != null)
 
-	# _ready() cannot run without the autoload, but the UI is built in a method of its own, so the
-	# construction can. This is where a wrong enum name or a stylebox override against a type that
-	# does not exist would otherwise reach a creator's build before anyone noticed.
-	_current = "the screen builds its interface"
+	_current = "the screen builds its interface and connects to the project autoload"
 	var panel = screen.new()
-	panel._build()
+	add_child(panel)
 	_check(panel._heading != null)
 	_check(panel._code_label != null)
 	_check(panel._qr != null)
 	_check_eq(panel._code_panel.visible, false)
 	_check_eq(panel._qr.visible, false)
+	_check_eq(panel._heading.text, "Connect this build")
+	_check(Prototir.pairing_started.is_connected(panel._on_started))
+	_check(Prototir.pairing_succeeded.is_connected(panel._on_succeeded))
+	_check(Prototir.pairing_failed.is_connected(panel._on_failed))
+
+	_current = "autoload pairing signals update the built-in screen"
+	Prototir.pairing_started.emit({"code": "ABCD-2345", "verification_url": "https://prototir.com/link"})
+	_check_eq(panel._code_label.text, "ABCD-2345")
+	_check_eq(panel._code_panel.visible, true)
+	Prototir.pairing_failed.emit("Test rejection")
+	_check_eq(panel._body.text, "Test rejection")
 
 	_current = "a QR that arrives is drawn, and its absence is not an error"
 	panel._show_qr(svg)
