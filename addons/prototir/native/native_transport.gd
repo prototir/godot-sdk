@@ -55,7 +55,7 @@ class TokenStore:
 	extends RefCounted
 
 	## Per slug, so a machine that tests two prototypes does not lose one pairing by starting the
-	## other. user:// is the only writable place a downloaded build can count on.
+	## other. user:// is the only writable place a native build can count on.
 	func read(slug: String) -> String:
 		var path := _path(slug)
 		if not FileAccess.file_exists(path):

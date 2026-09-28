@@ -2,9 +2,9 @@ extends RefCounted
 
 ## The device code flow, with no engine in it beyond what the injected http and delay provide.
 ##
-## A downloaded build has no browser session: it shows a code, the tester approves it on
+## A native build has no browser session: it shows a code, the tester approves it on
 ## prototir.com, and the build polls until a token comes back. Loopback redirects and custom URI
-## schemes were both rejected for this, because a downloaded build is unsigned and opening a socket
+## schemes were both rejected for this, because a native build is unsigned and opening a socket
 ## trips a firewall prompt at the worst moment, while nothing registers a URI scheme for a zip.
 
 enum Outcome {

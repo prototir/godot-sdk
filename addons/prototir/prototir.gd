@@ -1,7 +1,7 @@
 extends Node
 
 ## Godot-shaped adapter for Prototir protocol v1. Enable the addon to install this script as the
-## `Prototir` autoload. Web exports talk to the shell over JavaScriptBridge; downloadable builds
+## `Prototir` autoload. Web exports talk to the shell over JavaScriptBridge; native builds
 ## pair with prototir.com and report sessions themselves; the Editor keeps emitting its mocks.
 
 const PROTOCOL_VERSION := 1
@@ -184,7 +184,7 @@ func install_web_bridge() -> bool:
 	return true
 
 
-## Point a downloadable build at a prototype from code, instead of Project Settings > Prototir.
+## Point a native build at a prototype from code, instead of Project Settings > Prototir.
 func configure(slug: String, api_base := "", device_label := "") -> void:
 	if _native != null:
 		_native.configure(slug, api_base, device_label)

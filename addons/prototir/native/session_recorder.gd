@@ -2,7 +2,7 @@ extends RefCounted
 
 ## Accumulates a play so it can be reported as one session.
 ##
-## The browser shell watches a prototype and reports for it. A download has no shell, so the build
+## The browser shell watches a prototype and reports for it. A native build has no shell, so the build
 ## must keep its own count and send one session rather than a call per event: the endpoint records
 ## a session, and a request per event() would be both wrong and a good way to burn a connection.
 ##

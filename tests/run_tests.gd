@@ -12,6 +12,7 @@ const PairingFlow := preload("res://addons/prototir/native/pairing_flow.gd")
 const SessionRecorder := preload("res://addons/prototir/native/session_recorder.gd")
 const ExportMenu := preload("res://addons/prototir/export_menu.gd")
 const SessionQueue := preload("res://addons/prototir/native/session_queue.gd")
+const Setup := preload("res://addons/prototir/setup.gd")
 
 var _checks := 0
 var _failures := 0
@@ -67,8 +68,29 @@ func _run_all() -> void:
 	await _pairing_tests()
 	_queue_tests()
 	_export_menu_tests()
+	_setup_target_tests()
 	_pairing_screen_tests()
 	await _feedback_screen_tests()
+
+
+# --- setup targets -------------------------------------------------------------------------------
+
+## A native project must never be told to follow the Web profile: that is what the dock used to do,
+## asking creators of desktop builds to switch renderer and add a Web preset they did not need.
+func _setup_target_tests() -> void:
+	var web_only := ["renderer", "web-preset", "threads", "extensions", "pwa", "resize", "focus", "entry", "mobile-textures"]
+	var ids := func(target: String) -> Array:
+		return Setup.get_issues(target).map(func(issue: Dictionary) -> String: return str(issue.get("id", "")))
+
+	_current = "a native target reports none of the Web profile rules"
+	var native_ids: Array = ids.call(Setup.TARGET_NATIVE)
+	_check(not native_ids.any(func(id: String) -> bool: return web_only.has(id)))
+
+	_current = "this project exports only for the Web, so a native target asks for a desktop preset"
+	_check(native_ids.has("native-preset"))
+
+	_current = "a web target still reports the Web profile and never the native preset"
+	_check(not (ids.call(Setup.TARGET_WEB) as Array).has("native-preset"))
 
 
 # --- session recorder ---------------------------------------------------------------------------
@@ -412,10 +434,10 @@ func _export_menu_tests() -> void:
 	written.save(path)
 	for i in 2:
 		menu._exclude_other_transport(
-			menu._find_preset(["Windows Desktop"], path), ExportMenu.DOWNLOAD_EXCLUDES, path)
+			menu._find_preset(["Windows Desktop"], path), ExportMenu.NATIVE_EXCLUDES, path)
 	var reread := ConfigFile.new()
 	reread.load(path)
-	_check_eq(reread.get_value("preset.1", "exclude_filter"), "*.psd," + ExportMenu.DOWNLOAD_EXCLUDES)
+	_check_eq(reread.get_value("preset.1", "exclude_filter"), "*.psd," + ExportMenu.NATIVE_EXCLUDES)
 
 	_current = "the executable name comes from the preset, so the platform gets the extension it needs"
 	_check_eq(menu._executable_name({"export_path": "build/My Game.exe"}), "My Game.exe")

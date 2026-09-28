@@ -1,11 +1,11 @@
 @tool
 extends RefCounted
 
-## One button per delivery mode (D43), so a creator does not have to know which export settings
-## Prototir expects.
+## One button per build type (D43), Web and Native, so a creator does not have to know which export
+## settings Prototir expects.
 ##
 ## Both produce a ZIP ready to drop on the upload page: web bundles are uploaded as one archive,
-## and a desktop build has to be an archive because an executable alone leaves its data folder
+## and a native build has to be an archive because an executable alone leaves its data folder
 ## behind, which is the most common way a download arrives broken.
 ##
 ## The export itself runs as a second, headless copy of this editor, because the in-editor export
@@ -23,9 +23,9 @@ const DESKTOP_PLATFORMS := {
 }
 
 ## The other transport, kept out of the pack. A Web bundle has no use for a pairing client and a
-## download has no use for a JavaScript bridge.
+## native build has no use for a JavaScript bridge.
 const WEB_EXCLUDES := "addons/prototir/native/*"
-const DOWNLOAD_EXCLUDES := "addons/prototir/web/*"
+const NATIVE_EXCLUDES := "addons/prototir/web/*"
 
 var _plugin: EditorPlugin
 var _dialog: AcceptDialog
@@ -41,7 +41,7 @@ func export_web() -> void:
 	_start(true)
 
 
-func export_download() -> void:
+func export_native() -> void:
 	_start(false)
 
 
@@ -76,7 +76,7 @@ func _start(web: bool) -> void:
 		_picker.access = EditorFileDialog.ACCESS_FILESYSTEM
 		_picker.dir_selected.connect(_on_directory_chosen)
 		_plugin.get_editor_interface().get_base_control().add_child(_picker)
-	_picker.title = "Export for Prototir (Web)" if web else "Export for Prototir (Download)"
+	_picker.title = "Export for Prototir (Web)" if web else "Export for Prototir (Native)"
 	_picker.popup_centered_ratio(0.6)
 
 
@@ -85,7 +85,7 @@ func _on_directory_chosen(directory: String) -> void:
 	if preset.is_empty():
 		return
 
-	_exclude_other_transport(preset, WEB_EXCLUDES if _pending_web else DOWNLOAD_EXCLUDES)
+	_exclude_other_transport(preset, WEB_EXCLUDES if _pending_web else NATIVE_EXCLUDES)
 
 	var name := "prototir-web" if _pending_web else "prototir-" + OS.get_name().to_lower()
 	# A clean folder per export: leftovers from a previous build ship inside the archive and are
@@ -127,9 +127,9 @@ func _on_directory_chosen(directory: String) -> void:
 	_say("%s\n%.1f MB\n\n%s" % [
 		archive.get_file(),
 		megabytes,
-		"Add it under \"Play in the browser\" on the upload page." if _pending_web
-			else "Add it under \"Download and run\" on the upload page, and remember a cover image "
-				+ "is required when there is no web build.",
+		"On the upload page, choose Add a build > Play in the browser." if _pending_web
+			else "On the upload page, choose Add a build > %s. A native-only prototype also needs a "
+				% OS.get_name() + "cover image.",
 	])
 	if not _headless():
 		OS.shell_show_in_file_manager(ProjectSettings.globalize_path(archive), true)

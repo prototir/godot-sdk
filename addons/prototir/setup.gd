@@ -5,8 +5,40 @@ extends RefCounted
 const EXPORT_PRESETS_PATH := "res://export_presets.cfg"
 const MINIMUM_GODOT_MINOR := 3
 
+## What the creator is building for Prototir. A prototype can ship both, but each export is one or
+## the other, and the checks that matter are different: the Web profile is about the sandbox, a
+## native build is a desktop export with none of those rules.
+const TARGET_WEB := "web"
+const TARGET_NATIVE := "native"
+const DESKTOP_PLATFORMS := {
+	"Windows": ["Windows Desktop"],
+	"macOS": ["macOS"],
+	"Linux": ["Linux", "Linux/X11"],
+}
 
-static func get_issues() -> Array[Dictionary]:
+
+## The target this project is set up for. Kept in the editor's per-project metadata (under
+## .godot/, never committed), so it follows the project on this machine. Until someone picks, it
+## is read off the export presets: a project with only a desktop preset is building native.
+static func get_target() -> String:
+	if Engine.is_editor_hint():
+		var stored := str(EditorInterface.get_editor_settings().get_project_metadata("prototir", "target", ""))
+		if stored == TARGET_WEB or stored == TARGET_NATIVE:
+			return stored
+	var config := _load_export_config()
+	if _find_web_preset(config).is_empty() and not _find_desktop_preset(config).is_empty():
+		return TARGET_NATIVE
+	return TARGET_WEB
+
+
+static func set_target(target: String) -> void:
+	if Engine.is_editor_hint():
+		EditorInterface.get_editor_settings().set_project_metadata("prototir", "target", target)
+
+
+static func get_issues(target := "") -> Array[Dictionary]:
+	if target.is_empty():
+		target = get_target()
 	var issues: Array[Dictionary] = []
 	var version := Engine.get_version_info()
 	var major := int(version.get("major", 0))
@@ -15,10 +47,28 @@ static func get_issues() -> Array[Dictionary]:
 		issues.append(_issue(
 			"godot-version",
 			"Godot 4.3 or newer is required",
-			"This project uses Godot %s. The first supported Prototir profile starts at Godot 4.3." % version.get("string", "unknown"),
+			"This project uses Godot %s. Prototir supports Godot 4.3 and later." % version.get("string", "unknown"),
 			"error"
 		))
 
+	if str(ProjectSettings.get_setting("application/run/main_scene", "")).is_empty():
+		issues.append(_issue(
+			"main-scene",
+			"No main scene is configured",
+			"Choose the scene that Godot should start before exporting the prototype.",
+			"error"
+		))
+
+	if target == TARGET_NATIVE:
+		_add_native_issues(issues)
+	else:
+		_add_web_issues(issues)
+	return issues
+
+
+## The standard Web profile: everything here is about running inside the Prototir sandbox, and
+## none of it applies to a native export.
+static func _add_web_issues(issues: Array[Dictionary]) -> void:
 	var rendering_method := str(ProjectSettings.get_setting("rendering/renderer/rendering_method", ""))
 	var mobile_rendering_method := str(ProjectSettings.get_setting("rendering/renderer/rendering_method.mobile", ""))
 	if rendering_method != "gl_compatibility" or mobile_rendering_method != "gl_compatibility":
@@ -28,14 +78,6 @@ static func get_issues() -> Array[Dictionary]:
 			"Use the Compatibility renderer for the supported Godot Web profile and the broadest mobile browser coverage.",
 			"error",
 			true
-		))
-
-	if str(ProjectSettings.get_setting("application/run/main_scene", "")).is_empty():
-		issues.append(_issue(
-			"main-scene",
-			"No main scene is configured",
-			"Choose the scene that Godot should start before exporting the prototype.",
-			"error"
 		))
 
 	var config := _load_export_config()
@@ -48,7 +90,7 @@ static func get_issues() -> Array[Dictionary]:
 			"error",
 			true
 		))
-		return issues
+		return
 
 	var options := "%s.options" % preset
 	if bool(config.get_value(options, "variant/thread_support", false)):
@@ -74,7 +116,17 @@ static func get_issues() -> Array[Dictionary]:
 			false
 		))
 
-	return issues
+
+## A native build is an ordinary desktop export. All Prototir needs is an export preset for this
+## machine, which is what Export for Prototir (Native) builds from.
+static func _add_native_issues(issues: Array[Dictionary]) -> void:
+	if _find_desktop_preset(_load_export_config()).is_empty():
+		issues.append(_issue(
+			"native-preset",
+			"No export preset for %s" % OS.get_name(),
+			"Add one in Project > Export > Add > %s. Install its export templates from Editor > Manage Export Templates if it reports them missing." % OS.get_name(),
+			"error"
+		))
 
 
 static func fix_issue(id: String) -> bool:
@@ -100,14 +152,14 @@ static func fix_issue(id: String) -> bool:
 	return false
 
 
-static func fix_all() -> void:
-	for issue in get_issues():
+static func fix_all(target := "") -> void:
+	for issue in get_issues(target):
 		if bool(issue.get("fixable", false)):
 			fix_issue(str(issue.get("id", "")))
 
 
-static func has_blocking_issues() -> bool:
-	return get_issues().any(func(issue: Dictionary) -> bool: return issue.get("severity") == "error")
+static func has_blocking_issues(target := "") -> bool:
+	return get_issues(target).any(func(issue: Dictionary) -> bool: return issue.get("severity") == "error")
 
 
 static func _issue(id: String, title: String, message: String, severity: String, fixable := false) -> Dictionary:
@@ -127,6 +179,14 @@ static func _load_export_config() -> ConfigFile:
 static func _find_web_preset(config: ConfigFile) -> String:
 	for section in config.get_sections():
 		if section.begins_with("preset.") and not section.ends_with(".options") and str(config.get_value(section, "platform", "")) == "Web":
+			return section
+	return ""
+
+
+static func _find_desktop_preset(config: ConfigFile) -> String:
+	var platforms: Array = DESKTOP_PLATFORMS.get(OS.get_name(), [])
+	for section in config.get_sections():
+		if section.begins_with("preset.") and not section.ends_with(".options") and platforms.has(str(config.get_value(section, "platform", ""))):
 			return section
 	return ""
 

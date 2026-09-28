@@ -1,6 +1,6 @@
 extends Control
 
-## A working pairing screen for a downloadable build, building its own UI in code so it drops
+## A working pairing screen for a native build, building its own UI in code so it drops
 ## into any scene without wiring.
 ##
 ## The addon draws nothing itself, because it cannot know your art direction, your input model, or
@@ -121,7 +121,7 @@ func _on_cancel_pressed() -> void:
 
 func _on_feedback_pressed() -> void:
 	_message.text = "Sending..."
-	var sent: bool = await Prototir.send_feedback("Hello from a downloaded build.")
+	var sent: bool = await Prototir.send_feedback("Hello from a native build.")
 	_message.text = "Feedback posted on the prototype page." if sent else "That feedback was not accepted."
 
 

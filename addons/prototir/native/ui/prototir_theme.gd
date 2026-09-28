@@ -7,7 +7,7 @@ extends RefCounted
 ## layout.css: a pairing screen sits over a running game, where dark reads better than light and
 ## matches what the tester just came from on prototir.com.
 ##
-## Lives under native/ with the rest of the download-only code, so Web exports strip it.
+## Lives under native/ with the rest of the native-only code, so Web exports strip it.
 
 const BACKGROUND := Color("#0f0f11")
 const SURFACE := Color("#18181b")

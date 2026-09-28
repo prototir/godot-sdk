@@ -75,13 +75,13 @@ func _export_begin(features: PackedStringArray, is_debug: bool, path: String, _f
 	_export_path = ""
 	_any_export_path = path
 	if not features.has("web"):
-		# A desktop export gets no Web preflight, but it does get a build id: a download is the
-		# case that id exists for (D43).
+		# A desktop export gets no Web preflight, but it does get a build id: a native build is
+		# the case that id exists for (D43).
 		return
 	_export_path = path
 	if is_debug:
 		push_error("Prototir: debug Web exports are not release-ready. Export a release build.")
-	for issue in Setup.get_issues():
+	for issue in Setup.get_issues(Setup.TARGET_WEB):
 		var message := "Prototir: %s - %s" % [issue.get("title", "setup issue"), issue.get("message", "")]
 		if issue.get("severity") == "error":
 			push_error(message)

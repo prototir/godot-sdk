@@ -28,7 +28,7 @@ func _enter_tree() -> void:
 	add_tool_menu_item("Prototir: Validate Web Setup", _show_setup)
 	_export_menu = ExportMenu.new(self)
 	add_tool_menu_item("Prototir: Export for Prototir (Web)", _export_menu.export_web)
-	add_tool_menu_item("Prototir: Export for Prototir (Download)", _export_menu.export_download)
+	add_tool_menu_item("Prototir: Export for Prototir (Native)", _export_menu.export_native)
 	_export_guard = ExportGuard.new()
 	add_export_plugin(_export_guard)
 	# Not in a headless editor. The export buttons run a second, headless copy of this editor to
@@ -40,9 +40,9 @@ func _enter_tree() -> void:
 	call_deferred("_report_setup")
 
 
-## Where a downloadable build learns which prototype it is. A Web export needs none of this: the
+## Where a native build learns which prototype it is. A Web export needs none of this: the
 ## page it runs in already knows, and the browser path keeps taking its context from there. A
-## download has no page, so the slug has to travel inside the build.
+## native build has no page, so the slug has to travel inside the build.
 func _register_settings() -> void:
 	for name in SETTINGS:
 		if not ProjectSettings.has_setting(name):
@@ -61,7 +61,7 @@ func _exit_tree() -> void:
 		remove_export_plugin(_export_guard)
 		_export_guard = null
 	remove_tool_menu_item("Prototir: Export for Prototir (Web)")
-	remove_tool_menu_item("Prototir: Export for Prototir (Download)")
+	remove_tool_menu_item("Prototir: Export for Prototir (Native)")
 	remove_tool_menu_item("Prototir: Validate Web Setup")
 	if _export_menu != null:
 		_export_menu.dispose()

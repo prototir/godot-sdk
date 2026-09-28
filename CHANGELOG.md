@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- The **Prototir** dock now asks what you are building, **Web** or **Native**, and shows only that
+  target's checks. A native project is no longer told to use the Compatibility renderer or to add
+  a Web export preset.
+- "Download" is now "Native" wherever it names the kind of build: **Prototir: Export for Prototir
+  (Native)** (was **(Download)**) and the docs.
+- The export dialog now names the current upload page steps (**Add a build > Windows**).
+
 ## 0.2.1 - 2026-09-28
 
 - Included the built-in pairing screen in an installable release, and reused an already-open screen.

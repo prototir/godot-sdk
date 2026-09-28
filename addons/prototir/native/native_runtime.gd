@@ -1,6 +1,6 @@
 extends Node
 
-## Everything a downloadable build needs at runtime: where it points, the token it was given, the
+## Everything a native build needs at runtime: where it points, the token it was given, the
 ## session it is accumulating, and the pairing state a game draws.
 ##
 ## The Prototir autoload creates this as a child when the build is not a Web export, and never
@@ -15,7 +15,7 @@ const Transport := preload("res://addons/prototir/native/native_transport.gd")
 const SLUG_SETTING := "prototir/prototype_slug"
 const API_BASE_SETTING := "prototir/api_base_url"
 const DEVICE_LABEL_SETTING := "prototir/device_label"
-## Where a downloadable build talks to Prototir.
+## Where a native build talks to Prototir.
 ##
 ## Its own hostname, not prototir.com/api: the site serves no /api path, so that default reached
 ## nothing and the whole native path was dead in production until a real build was run against it.
@@ -248,7 +248,7 @@ func read_build_id() -> String:
 ## Why this outranks the project setting: the slug does not exist until the prototype does, and the
 ## prototype does not exist until a build has been uploaded to it, so the first export a creator
 ## makes cannot contain the right value. Prototir knows it at upload and writes it in, which means
-## a downloaded build reports back with nothing set by hand. Where the two disagree, the one that
+## a native build reports back with nothing set by hand. Where the two disagree, the one that
 ## travelled with this exact download is the one describing this exact download.
 ##
 ## Empty for anything unreadable: a build whose slug file is missing or damaged falls back to the

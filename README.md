@@ -23,14 +23,14 @@ project. Then:
 2. Open the **Prototir** dock.
 3. For browser exports, apply safe fixes and resolve every browser-profile blocking item.
 4. Use the appropriate **Export for Prototir** command for a browser or native release.
-   Native builds do not need `index.html`; see [Downloadable builds](#downloadable-builds).
+   Native builds do not need `index.html`; see [Native builds](#native-builds).
 
 The addon installs `Prototir` as an autoload. Pin a published release tag for reproducible projects.
 
 ## Basic use
 
 Browser exports use the host connection. Native releases must pair before sending sessions or
-text feedback; see [Downloadable builds](#downloadable-builds). Storage and AI in this example
+text feedback; see [Native builds](#native-builds). Storage and AI in this example
 are browser features; native calls use local mocks.
 
 ```gdscript
@@ -55,8 +55,14 @@ and accept letters, numbers, `_`, `.`, `:`, and `-`. Keep payloads small and fre
 
 ## Project Setup and export checks
 
-The dock checks the Godot version, renderer, main scene, Web export preset, threads, GDExtension,
-PWA output, adaptive canvas resizing, initial focus, entry filename, and mobile texture compression.
+The dock starts with **Building for: Web | Native**. The choice is saved per project in the
+editor's project metadata, and until you pick it follows your export presets.
+
+- **Every build:** Godot version and main scene.
+- **Web:** Compatibility renderer, Web export preset, threads, GDExtension, PWA output, adaptive
+  canvas resizing, initial focus, entry filename, and mobile texture compression.
+- **Native:** an export preset for the machine you are on. None of the Web rules apply.
+
 Blocking issues prevent a supported release; recommendations remain visible when a choice depends on
 the project. Safe fixes never enable mobile texture compression automatically because its size and
 quality tradeoff must be tested by the creator.
@@ -131,10 +137,10 @@ The browser `review_enable` screenshot overlay does not run in a native export.
 The addon reuses the pairing until it is revoked or expires. Keep the tester's draft on send failure
 and offer a retry. Testers can disconnect a build from their Prototir account settings.
 
-## Downloadable builds
+## Native builds
 
 A Web export takes everything from the page around it: the visitor is already signed in, and the
-shell watches the prototype and reports for it. A download has none of that, so the addon does it
+shell watches the prototype and reports for it. A native build has none of that, so the addon does it
 itself.
 
 You do not configure the slug. Prototir writes it into the .zip as you upload the build, into a
@@ -198,7 +204,7 @@ time. Reporting does not: an F5 run is not a play, and counting it would put you
 your own numbers.
 
 Nothing here reaches a Web export. **Prototir > Export for Prototir (Web)** adds
-`addons/prototir/native/*` to that preset's exclude filter, and the Download button excludes
+`addons/prototir/native/*` to that preset's exclude filter, and the Native button excludes
 `addons/prototir/web/*`, so each build carries only the transport it can use. You can see and change
 both in **Project > Export > Resources > Exclude**.
 
@@ -207,7 +213,7 @@ both in **Project > Export > Resources > Exclude**.
 Two entries under **Project > Tools**:
 
 - **Prototir: Export for Prototir (Web)** runs the Web preflight, exports, and zips the result.
-- **Prototir: Export for Prototir (Download)** exports for the machine you are on.
+- **Prototir: Export for Prototir (Native)** exports for the machine you are on.
 
 Both produce a ZIP ready to drop on the upload page, and both write `prototir-build.json` beside the
 build. Prototir records that id from the archive, and a running build reports the same id when it

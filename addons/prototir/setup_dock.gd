@@ -16,19 +16,40 @@ func refresh() -> void:
 		child.queue_free()
 
 	var heading := Label.new()
-	heading.text = "Prototir Web Setup"
+	heading.text = "Prototir Setup"
 	heading.add_theme_font_size_override("font_size", 20)
 	add_child(heading)
 
+	# What this project is building. The checks for a Web export and a native one have almost
+	# nothing in common, so showing both at once would bury the ones that apply.
+	var target := Setup.get_target()
+	var picker := HBoxContainer.new()
+	var building := Label.new()
+	building.text = "Building for"
+	picker.add_child(building)
+	var group := ButtonGroup.new()
+	for option in [[Setup.TARGET_WEB, "Web"], [Setup.TARGET_NATIVE, "Native"]]:
+		var button := Button.new()
+		button.text = option[1]
+		button.toggle_mode = true
+		button.button_group = group
+		button.button_pressed = target == option[0]
+		button.pressed.connect(_pick.bind(option[0]))
+		picker.add_child(button)
+	add_child(picker)
+
 	var intro := Label.new()
-	intro.text = "Checks this project against the supported Godot Web profile before export."
+	intro.text = ("Plays in the browser on Prototir. Checked against the supported Godot Web profile."
+		if target == Setup.TARGET_WEB
+		else "A Windows, macOS or Linux build people download and run. One prototype can have both.")
 	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(intro)
 
-	var issues := Setup.get_issues()
+	var issues := Setup.get_issues(target)
 	if issues.is_empty():
 		var ready := Label.new()
-		ready.text = "Ready for a Prototir Web release."
+		ready.text = ("Ready for a Prototir Web release." if target == Setup.TARGET_WEB
+			else "Ready for a Prototir native build.")
 		ready.modulate = Color("5fd995")
 		add_child(ready)
 	else:
@@ -80,4 +101,9 @@ func _fix(id: String) -> void:
 
 func _fix_all() -> void:
 	Setup.fix_all()
+	refresh()
+
+
+func _pick(target: String) -> void:
+	Setup.set_target(target)
 	refresh()

@@ -75,7 +75,10 @@ try {
     "utf8",
   );
   for (const token of [
-    "func get_issues()",
+    "func get_issues(",
+    "func get_target()",
+    "func set_target(",
+    "func _add_native_issues(",
     "variant/thread_support",
     "variant/extensions_support",
     "progressive_web_app/enabled",
@@ -114,17 +117,17 @@ try {
     'the build id timestamp must not use the space separator; pass use_space: false'
   );
 
-  // What keeps a Web bundle free of the pairing client, and a download free of the browser
+  // What keeps a Web bundle free of the pairing client, and a native build free of the browser
   // bridge. Behaviour is covered by tests/run_tests.gd; these two invariants are the ones that
   // break the stripping itself, and neither is visible from inside a running game.
-  for (const token of ["Prototir: Export for Prototir (Web)", "Prototir: Export for Prototir (Download)"])
+  for (const token of ["Prototir: Export for Prototir (Web)", "Prototir: Export for Prototir (Native)"])
     assert.ok(editorPlugin.includes(token), `editor plugin missing ${token}`);
   const exportMenu = readFileSync(
     new URL("../addons/prototir/export_menu.gd", import.meta.url),
     "utf8",
   );
   assert.match(exportMenu, /WEB_EXCLUDES := "addons\/prototir\/native\/\*"/);
-  assert.match(exportMenu, /DOWNLOAD_EXCLUDES := "addons\/prototir\/web\/\*"/);
+  assert.match(exportMenu, /NATIVE_EXCLUDES := "addons\/prototir\/web\/\*"/);
 
   const autoload = readFileSync(
     new URL("../addons/prototir/prototir.gd", import.meta.url),
@@ -147,7 +150,7 @@ try {
     );
   }
 
-  // Where a downloadable build talks to Prototir. It is written in two files and it is compiled
+  // Where a native build talks to Prototir. It is written in two files and it is compiled
   // into executables that can never be updated, so drift between them, or a slip back to a host
   // that serves no /api, is not something to discover from a creator's bug report.
   const nativeRuntime = readFileSync(
