@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 - 2026-09-28
+
+- Included the built-in pairing screen in an installable release, and reused an already-open screen.
+- Added `show_feedback_screen()` for desktop text feedback: one comment, browser pairing when needed, drafts retained during this run, and retry IDs preventing duplicate comments.
+- Browser captures now use the Prototir host composer through Web SDK 0.2.8.
 
 - A downloadable build now tells Prototir which build it is at launch, so a download-only
   prototype switches on the first time anyone runs it. This used to require pairing, which

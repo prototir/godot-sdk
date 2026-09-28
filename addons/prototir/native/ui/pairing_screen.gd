@@ -35,6 +35,7 @@ var _note: Label
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 128
 	_build()
 	Prototir.pairing_started.connect(_on_started)

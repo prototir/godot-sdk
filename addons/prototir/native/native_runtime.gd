@@ -211,7 +211,7 @@ func unpair() -> void:
 ## No session is needed first. Commenting is normally gated on having played, and that gate is
 ## waived for a paired device on purpose: approving the pairing is the stronger signal, since the
 ## tester signed in and authorised this exact build for this exact prototype.
-func send_feedback(text: String) -> bool:
+func send_feedback(text: String, client_id := "") -> bool:
 	if text.strip_edges().is_empty():
 		return false
 	if not _ensure_configured():
@@ -221,8 +221,11 @@ func send_feedback(text: String) -> bool:
 		pairing_failed.emit("Pair this build before sending feedback.")
 		return false
 
+	var body := {"text": text.strip_edges()}
+	if not client_id.is_empty():
+		body["clientId"] = client_id
 	var response: Dictionary = await _http.post_json(
-		_url("comments"), JSON.stringify({"text": text.strip_edges()}), token)
+		_url("comments"), JSON.stringify(body), token)
 	var status := int(response.get("status", 0))
 	if PairingFlow.is_token_terminal(status):
 		unpair()

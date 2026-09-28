@@ -68,6 +68,7 @@ func _run_all() -> void:
 	_queue_tests()
 	_export_menu_tests()
 	_pairing_screen_tests()
+	await _feedback_screen_tests()
 
 
 # --- session recorder ---------------------------------------------------------------------------
@@ -494,6 +495,51 @@ func _pairing_screen_tests() -> void:
 	panel._show_qr("")
 	_check_eq(panel._qr.visible, false)
 	panel.free()
+
+
+# A real CanvasLayer with a fake transport: no public comment or pairing request is sent.
+class FeedbackTokens:
+	extends RefCounted
+	func read(_slug: String) -> String:
+		return "test-token"
+	func write(_slug: String, _token: String) -> void:
+		pass
+
+
+func _feedback_screen_tests() -> void:
+	var native = Prototir._native
+	var old_http = native._http
+	var old_tokens = native._tokens
+	var old_slug: String = native._slug
+	var http := FakeHttp.new()
+	native._http = http
+	native._tokens = FeedbackTokens.new()
+	native._slug = "feedback-ui-test"
+	var screen = Prototir.show_feedback_screen("A useful comment")
+	_current = "feedback calls reuse one screen and never post on opening"
+	_check_eq(Prototir.show_feedback_screen(), screen)
+	_check_eq(http.calls.size(), 0)
+	_current = "failed posting keeps the draft and retries reuse its server id"
+	http.responses = [{"status": 503}, {"status": 201}]
+	await screen._submit()
+	_check_eq(screen._text.text, "A useful comment")
+	_check(screen._status.text.contains("draft is kept"))
+	var first: Dictionary = JSON.parse_string(http.calls[0].body)
+	await screen._submit()
+	var retry: Dictionary = JSON.parse_string(http.calls[1].body)
+	_check_eq(first.clientId, retry.clientId)
+	_check_eq(screen._text.text, "")
+	_current = "closing and reopening retains an unfinished comment"
+	screen._text.text = "Another comment"
+	screen._changed()
+	screen._dismiss()
+	await get_tree().process_frame
+	screen = Prototir.show_feedback_screen()
+	_check_eq(screen._text.text, "Another comment")
+	screen.free()
+	native._http = old_http
+	native._tokens = old_tokens
+	native._slug = old_slug
 
 
 # --- harness ------------------------------------------------------------------------------------

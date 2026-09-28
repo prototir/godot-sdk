@@ -222,14 +222,32 @@ func cancel_pairing() -> void:
 ## collecting a single session, with only an unstyled example to copy. Ignoring it costs nothing.
 ##
 ## Returns null on a Web export, which has no pairing to do: the page already knows the visitor.
+var _pairing_screen: Node
+var _feedback_screen: Node
+
+
 func show_pairing_screen() -> Node:
 	if _native == null:
 		return null
 	# load(), never preload(): the whole native folder is stripped from a Web export, and a
 	# preload would make the addon fail to resolve there instead of simply doing nothing.
-	var screen: Node = load("res://addons/prototir/native/ui/pairing_screen.gd").new()
-	get_tree().root.add_child(screen)
-	return screen
+	if is_instance_valid(_pairing_screen) and not _pairing_screen.is_queued_for_deletion():
+		return _pairing_screen
+	_pairing_screen = load("res://addons/prototir/native/ui/pairing_screen.gd").new()
+	get_tree().root.add_child(_pairing_screen)
+	return _pairing_screen
+
+
+## One comment box, with pairing when needed. Web exports use the host screenshot composer.
+func show_feedback_screen(initial_text := "") -> Node:
+	if _native == null:
+		return null
+	if is_instance_valid(_feedback_screen) and not _feedback_screen.is_queued_for_deletion():
+		return _feedback_screen
+	_feedback_screen = load("res://addons/prototir/native/ui/feedback_screen.gd").new()
+	_feedback_screen.initial_text = initial_text
+	get_tree().root.add_child(_feedback_screen)
+	return _feedback_screen
 
 
 ## Forget the stored token, so this build pairs again next time.
@@ -240,10 +258,10 @@ func unpair() -> void:
 
 ## Post feedback as the tester who approved this build. No session is needed first: approving the
 ## pairing is the stronger signal, so the usual played-it gate is waived for a paired device.
-func send_feedback(text: String) -> bool:
+func send_feedback(text: String, client_id := "") -> bool:
 	if _native == null:
 		return false
-	return await _native.send_feedback(text)
+	return await _native.send_feedback(text, client_id)
 
 
 ## Report the session so far. Called automatically when the window is closed; call it yourself at a

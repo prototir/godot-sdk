@@ -16,7 +16,7 @@ export settings so unsupported profiles are caught before upload.
 ## Install
 
 Download the `addons/prototir` directory from the
-[v0.2.0 release](https://github.com/prototir/godot-sdk/releases/tag/v0.2.0) and copy it into your
+[v0.2.1 release](https://github.com/prototir/godot-sdk/releases/tag/v0.2.1) and copy it into your
 project. Then:
 
 1. Enable **Prototir SDK** under **Project Settings > Plugins**.
@@ -147,8 +147,7 @@ outside Prototir, or an installer Prototir cannot write into. Call `Prototir.con
 if your game decides it at runtime. The injected slug wins over the project setting, because it
 travelled with that exact download. Then:
 
-The current source checkout also has a built-in pairing screen. It was added after the immutable
-`v0.2.0` release; projects pinned to `v0.2.0` use the pairing signals shown below instead:
+The `v0.2.1` release includes a built-in pairing screen:
 
 ```gdscript
 func _ready() -> void:
@@ -247,3 +246,9 @@ export, pass the structural validator, and play in the real Prototir sandbox.
 ## License
 
 [MIT](LICENSE.md)
+
+### Simple native feedback
+
+Call `Prototir.show_feedback_screen()` from your game's Feedback button. The desktop screen retains unfinished comments during this run and failed posts, and offers browser pairing when needed. After pairing the tester reviews the draft and presses Post. A retry reuses the submission ID, and comments pass the existing API text checks. The returned screen emits `closed` for custom pause handling.
+
+These flat overlays are not headset UI. VR projects should use their own interface and the pairing signals / `send_feedback`. Native screenshots are not provided.
