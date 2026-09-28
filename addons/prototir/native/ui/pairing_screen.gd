@@ -148,7 +148,7 @@ func _show_idle() -> void:
 
 	_heading.text = "Connect this build"
 	_body.text = "Pairing links this copy to your Prototir account, so the plays and feedback it reports are attributed to you. It takes one approval on prototir.com and lasts for this machine."
-	_note.text = "Until then this build reports nothing, by design: there is nobody to attribute a play to."
+	_note.text = "Play sessions and feedback are sent once you connect."
 	_action("Get a code", _on_pair, true)
 	_action("Not now", _close)
 
