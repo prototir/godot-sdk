@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 - 2026-09-30
 
 - **Prototir: Publish to Prototir (Web)** and **(Native)** export, upload the ZIP straight to
   Prototir, and open the upload page (or the prototype's Studio page when the project has a slug)

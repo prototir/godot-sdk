@@ -16,7 +16,7 @@ export settings so unsupported profiles are caught before upload.
 ## Install
 
 Download the `addons/prototir` directory from the
-[v0.2.1 release](https://github.com/prototir/godot-sdk/releases/tag/v0.2.1) and copy it into your
+[v0.3.0 release](https://github.com/prototir/godot-sdk/releases/tag/v0.3.0) and copy it into your
 project. Then:
 
 1. Enable **Prototir SDK** under **Project Settings > Plugins**.
@@ -153,7 +153,7 @@ outside Prototir, or an installer Prototir cannot write into. Call `Prototir.con
 if your game decides it at runtime. The injected slug wins over the project setting, because it
 travelled with that exact download. Then:
 
-The `v0.2.1` release includes a built-in pairing screen:
+Since `v0.2.1` the addon includes a built-in pairing screen:
 
 ```gdscript
 func _ready() -> void:
