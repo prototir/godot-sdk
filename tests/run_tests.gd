@@ -13,6 +13,8 @@ const SessionRecorder := preload("res://addons/prototir/native/session_recorder.
 const ExportMenu := preload("res://addons/prototir/export_menu.gd")
 const SessionQueue := preload("res://addons/prototir/native/session_queue.gd")
 const Setup := preload("res://addons/prototir/setup.gd")
+const EditorLink := preload("res://addons/prototir/editor/editor_link.gd")
+const DirectUpload := preload("res://addons/prototir/editor/direct_upload.gd")
 
 var _checks := 0
 var _failures := 0
@@ -52,6 +54,37 @@ class FakeDelay:
 		_clock.ms += int(seconds * 1000.0)
 
 
+## The editor's network for Publish to Prototir: JSON calls and part uploads, answered from queues.
+class FakeApi:
+	extends RefCounted
+	var responses := []
+	var puts := []
+	var calls := []
+	var put_calls := []
+	func send(method: String, url: String, body: String, token: String) -> Dictionary:
+		calls.append({"method": method, "url": url, "body": body, "token": token})
+		if responses.is_empty():
+			return {"status": 0, "body": ""}
+		return responses.pop_front()
+	func put_bytes(url: String, bytes: PackedByteArray) -> Dictionary:
+		put_calls.append({"url": url, "size": bytes.size()})
+		if puts.is_empty():
+			return {"status": 0, "body": "", "headers": {}}
+		return puts.pop_front()
+
+
+## Stands in for EditorSettings, which a headless test cannot write without touching the real one.
+class FakeSettings:
+	extends RefCounted
+	var values := {}
+	func has_setting(name: String) -> bool:
+		return values.has(name)
+	func get_setting(name: String):
+		return values.get(name)
+	func set_setting(name: String, value) -> void:
+		values[name] = value
+
+
 func _ready() -> void:
 	# Let the project finish entering the tree before exercising UI nodes and autoload signals.
 	_run_tests.call_deferred()
@@ -68,10 +101,147 @@ func _run_all() -> void:
 	await _pairing_tests()
 	_queue_tests()
 	_export_menu_tests()
+	await _publish_tests()
 	_setup_target_tests()
 	_pairing_screen_tests()
 	await _feedback_screen_tests()
 
+
+# --- publish to prototir ---------------------------------------------------------------------------
+
+func _publish_tests() -> void:
+	var api_base := "http://local.test/api"
+	var settings := FakeSettings.new()
+
+	_current = "an editor with no link has none, and a link is kept per API address"
+	_check_eq(EditorLink.stored(settings, api_base), {})
+	EditorLink.remember(settings, api_base, {"token": "t1", "display_name": "Ada", "app_origin": "http://local.test"})
+	_check_eq(EditorLink.stored(settings, api_base).get("token"), "t1")
+	_check_eq(EditorLink.stored(settings, "https://api.prototir.com/api"), {})
+	EditorLink.forget(settings, api_base)
+	_check_eq(EditorLink.stored(settings, api_base), {})
+
+	_current = "a stored link is checked: 401 means unlinked, no answer keeps it for later"
+	var api := FakeApi.new()
+	api.responses = [
+		{"status": 200, "body": '{"displayName":"Ada Lovelace"}'},
+		{"status": 401, "body": ""},
+		{"status": 0, "body": ""},
+	]
+	var link := {"token": "t1"}
+	_check_eq(await EditorLink.verify(api, api_base, link), "ok")
+	_check_eq(link.get("display_name"), "Ada Lovelace")
+	_check_eq(await EditorLink.verify(api, api_base, link), "unlinked")
+	_check_eq(await EditorLink.verify(api, api_base, link), "error")
+	_check_eq(api.calls[0].url, api_base + "/editor/me")
+	_check_eq(api.calls[0].token, "t1")
+
+	_current = "linking asks for a code as a Godot editor and keeps the API's own refusal"
+	api = FakeApi.new()
+	api.responses = [
+		{"status": 200, "body": '{"code":"ABCD-1234","verificationUrl":"http://local.test/link/editor?code=ABCD-1234","intervalSeconds":3,"expiresInSeconds":600}'},
+		{"status": 429, "body": '{"error":"Too many codes."}'},
+	]
+	var pending: Dictionary = await EditorLink.start(api, api_base, "Godot 4 on test")
+	_check_eq(pending.get("code"), "ABCD-1234")
+	_check_eq(pending.get("interval"), 3)
+	_check_eq(JSON.parse_string(api.calls[0].body).get("engine"), "godot")
+	_check_eq((await EditorLink.start(api, api_base, "x")).get("error"), "Too many codes.")
+
+	_current = "approval waits through 'not yet' and dropped polls, then keeps the website's origin"
+	var clock := Clock.new()
+	var delay := FakeDelay.new(clock)
+	api = FakeApi.new()
+	api.responses = [
+		{"status": 202, "body": ""},
+		{"status": 0, "body": ""},
+		{"status": 200, "body": '{"token":"editor-token","displayName":"Ada"}'},
+	]
+	var approved: Dictionary = await EditorLink.wait_for_approval(api, delay, clock, api_base, pending, func() -> bool: return false)
+	_check_eq(approved.get("token"), "editor-token")
+	_check_eq(approved.get("app_origin"), "http://local.test")
+	_check_eq(delay.waits.size(), 3)
+
+	_current = "a dead code stops the wait, and so does nobody approving before the deadline"
+	api = FakeApi.new()
+	api.responses = [{"status": 410, "body": '{"error":"This code expired."}'}]
+	_check_eq((await EditorLink.wait_for_approval(api, delay, clock, api_base, pending, func() -> bool: return false)).get("error"), "This code expired.")
+	api = FakeApi.new()
+	for i in 400:
+		api.responses.append({"status": 202, "body": ""})
+	var expired: Dictionary = await EditorLink.wait_for_approval(api, delay, clock, api_base, pending, func() -> bool: return false)
+	_check(str(expired.get("error", "")).begins_with("Nobody approved"))
+
+	_current = "a build is uploaded in parts, each part's ETag is kept, and the claim comes back"
+	var path := "user://publish_test.zip"
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_buffer("0123456789".to_utf8_buffer())
+	file.close()
+	api = FakeApi.new()
+	api.responses = [
+		{"status": 200, "body": '{"uploadRef":"ref1","uploadId":"up 1","partSizeBytes":4,"parts":[{"partNumber":1,"url":"s3://1"},{"partNumber":2,"url":"s3://2"},{"partNumber":3,"url":"s3://3"}]}'},
+		{"status": 200, "body": '{"claim":"claim-1"}'},
+	]
+	api.puts = [
+		{"status": 200, "headers": {"etag": "e1"}},
+		{"status": 0, "headers": {}},
+		{"status": 200, "headers": {"etag": "e2"}},
+		{"status": 200, "headers": {"etag": "e3"}},
+	]
+	var sent := [0]
+	var uploaded: Dictionary = await DirectUpload.upload(api, delay, api_base, "editor-token", path,
+		func(bytes: int) -> void: sent[0] += bytes, func() -> bool: return false)
+	_check_eq(uploaded.get("claim"), "claim-1")
+	_check_eq(sent[0], 10)
+	_check_eq(api.put_calls.map(func(call: Dictionary) -> int: return call.size), [4, 4, 4, 2])
+	var completed = JSON.parse_string(api.calls[1].body)
+	_check_eq(completed.get("parts").map(func(part: Dictionary) -> String: return part.etag), ["e1", "e2", "e3"])
+	_check_eq(JSON.parse_string(api.calls[0].body).get("sizeBytes"), 10.0)
+
+	_current = "a part storage refuses stops the upload and clears the parts already sent"
+	api = FakeApi.new()
+	api.responses = [
+		{"status": 200, "body": '{"uploadRef":"ref2","uploadId":"up2","partSizeBytes":8,"parts":[{"partNumber":1,"url":"s3://1"},{"partNumber":2,"url":"s3://2"}]}'},
+		{"status": 204, "body": ""},
+	]
+	api.puts = [{"status": 403, "headers": {}}]
+	var refused: Dictionary = await DirectUpload.upload(api, delay, api_base, "editor-token", path,
+		func(_bytes: int) -> void: pass, func() -> bool: return false)
+	_check(refused.has("error"))
+	_check_eq(api.calls[-1].method, "DELETE")
+	_check_eq(api.calls[-1].url, api_base + "/me/uploads/direct/ref2?uploadId=up2")
+
+	_current = "an editor unlinked on the website finds out from the first call"
+	api = FakeApi.new()
+	api.responses = [{"status": 401, "body": ""}]
+	var unlinked: Dictionary = await DirectUpload.upload(api, delay, api_base, "old", path,
+		func(_bytes: int) -> void: pass, func() -> bool: return false)
+	_check_eq(unlinked.get("unlinked"), true)
+	_check_eq(api.put_calls.size(), 0)
+
+	_current = "registering the upload says it came from Godot"
+	api = FakeApi.new()
+	api.responses = [{"status": 200, "body": '{"id":"u1"}'}]
+	_check_eq(await DirectUpload.register(api, api_base, "editor-token", {"claim": "c", "kind": "native", "platform": "windows"}), {})
+	var registered = JSON.parse_string(api.calls[0].body)
+	_check_eq([registered.engine, registered.kind, registered.platform], ["godot", "native", "windows"])
+	_check_eq(api.calls[0].url, api_base + "/editor/uploads")
+
+	_current = "a native build is labelled with its preset's architecture, in Prototir's words"
+	var menu = ExportMenu.new(null)
+	var presets := "user://test_arch_presets.cfg"
+	var config := ConfigFile.new()
+	config.set_value("preset.0", "platform", "Windows Desktop")
+	config.set_value("preset.0.options", "binary_format/architecture", "arm64")
+	config.set_value("preset.1", "platform", "macOS")
+	config.save(presets)
+	_check_eq(menu.native_architecture({"section": "preset.0", "platform": "Windows Desktop"}, presets), "arm64")
+	_check_eq(menu.native_architecture({"section": "preset.1", "platform": "macOS"}, presets), "universal")
+	_check_eq(menu.native_architecture({"section": "preset.9", "platform": "Linux"}, presets), "x64")
+
+	_current = "the website origin is read from the approval address"
+	_check_eq(EditorLink.origin_of("https://prototir.com/link/editor?code=1"), "https://prototir.com")
+	_check_eq(EditorLink.origin_of("http://localhost:5173/link/editor"), "http://localhost:5173")
 
 # --- setup targets -------------------------------------------------------------------------------
 

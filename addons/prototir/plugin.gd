@@ -7,6 +7,7 @@ const Setup := preload("res://addons/prototir/setup.gd")
 const SetupDock := preload("res://addons/prototir/setup_dock.gd")
 const ExportGuard := preload("res://addons/prototir/export_guard.gd")
 const ExportMenu := preload("res://addons/prototir/export_menu.gd")
+const PublishMenu := preload("res://addons/prototir/editor/publish_menu.gd")
 
 const SETTINGS := {
 	"prototir/prototype_slug": "",
@@ -18,6 +19,7 @@ const SETTINGS := {
 var _setup_dock
 var _export_guard: EditorExportPlugin
 var _export_menu
+var _publish_menu
 
 
 func _enter_tree() -> void:
@@ -29,6 +31,11 @@ func _enter_tree() -> void:
 	_export_menu = ExportMenu.new(self)
 	add_tool_menu_item("Prototir: Export for Prototir (Web)", _export_menu.export_web)
 	add_tool_menu_item("Prototir: Export for Prototir (Native)", _export_menu.export_native)
+	# Export, upload and open the website with the build waiting there (§16.5.35).
+	_publish_menu = PublishMenu.new(self, _export_menu)
+	add_tool_menu_item("Prototir: Publish to Prototir (Web)", _publish_menu.publish_web)
+	add_tool_menu_item("Prototir: Publish to Prototir (Native)", _publish_menu.publish_native)
+	add_tool_menu_item("Prototir: Unlink This Editor", _publish_menu.unlink)
 	_export_guard = ExportGuard.new()
 	add_export_plugin(_export_guard)
 	# Not in a headless editor. The export buttons run a second, headless copy of this editor to
@@ -63,6 +70,12 @@ func _exit_tree() -> void:
 	remove_tool_menu_item("Prototir: Export for Prototir (Web)")
 	remove_tool_menu_item("Prototir: Export for Prototir (Native)")
 	remove_tool_menu_item("Prototir: Validate Web Setup")
+	remove_tool_menu_item("Prototir: Publish to Prototir (Web)")
+	remove_tool_menu_item("Prototir: Publish to Prototir (Native)")
+	remove_tool_menu_item("Prototir: Unlink This Editor")
+	if _publish_menu != null:
+		_publish_menu.dispose()
+		_publish_menu = null
 	if _export_menu != null:
 		_export_menu.dispose()
 		_export_menu = null

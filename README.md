@@ -224,6 +224,26 @@ build being run against a new upload.
 Exporting for the other desktop platforms needs their export templates, so those stay in the normal
 Export dialog rather than behind a button that would produce a build nobody can run.
 
+## Publish to Prototir
+
+**Prototir: Publish to Prototir (Web)** and **(Native)**, also under **Project > Tools**, export,
+upload, and open your browser with the build waiting for you. You finish the details there and
+publish; the editor never publishes on its own.
+
+- **First time on a computer:** the editor asks to be linked to your account. Your browser opens
+  an approval page with a code; approve it once and every project on this machine can publish.
+  The link can only upload builds. See or remove it under **Linked editors** on your account page,
+  or use **Prototir: Unlink This Editor**.
+- **Project with a slug** (Project Settings > `prototir/prototype_slug`): the browser opens that
+  prototype's Studio page instead, to replace its web build or add this native build.
+- **Uploads wait for you** for 7 days, listed on the upload page (new prototype) or in Studio
+  (project with a slug), so closing or reloading the browser loses nothing. A newer upload for the
+  same prototype and platform replaces the older one.
+- **Version:** a native build is offered with Project Settings > Application > Config > Version,
+  which you can change on the website. Its architecture comes from the export preset
+  (`binary_format/architecture`).
+- **Automated builds** keep using Export for Prototir: Publish needs a person at a browser.
+
 ## Documentation and examples
 
 - [Addon quick reference](addons/prototir/README.md)

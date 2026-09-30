@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Prototir: Publish to Prototir (Web)** and **(Native)** export, upload the ZIP straight to
+  Prototir, and open the upload page (or the prototype's Studio page when the project has a slug)
+  with the build waiting. The first time on a computer the editor is linked to your account with a
+  browser approval; the link can only upload. **Prototir: Unlink This Editor** forgets it.
 - The **Prototir** dock now asks what you are building, **Web** or **Native**, and shows only that
   target's checks. A native project is no longer told to use the Compatibility renderer or to add
   a Web export preset.

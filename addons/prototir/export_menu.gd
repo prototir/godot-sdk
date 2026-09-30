@@ -55,18 +55,8 @@ func dispose() -> void:
 
 
 func _start(web: bool) -> void:
-	var preset := _find_preset(WEB_PLATFORMS if web else _host_platforms())
-	if preset.is_empty():
-		if web:
-			_say("Add a Web export preset first, in Project > Export > Add > Web.\n\n"
-				+ "Install the Web export templates from Editor > Manage Export Templates if the "
-				+ "preset reports them missing.")
-		else:
-			_say("Add an export preset for this machine first, in Project > Export > Add > %s.\n\n"
-				% OS.get_name()
-				+ "This button does not export for the other desktop platforms: cross-exporting "
-				+ "macOS and Linux from here needs their own templates, and a build nobody can run "
-				+ "is worse than no build at all.")
+	if not has_preset(web):
+		_say(missing_preset_message(web))
 		return
 
 	_pending_web = web
@@ -81,13 +71,38 @@ func _start(web: bool) -> void:
 
 
 func _on_directory_chosen(directory: String) -> void:
-	var preset := _find_preset(WEB_PLATFORMS if _pending_web else _host_platforms())
-	if preset.is_empty():
+	var result := build(_pending_web, directory)
+	if result.has("error"):
+		_say(str(result.error))
 		return
+	var archive := str(result.archive)
+	var megabytes := FileAccess.open(archive, FileAccess.READ).get_length() / 1024.0 / 1024.0
+	print("Prototir: exported %s (%.1f MB). Upload it at prototir.com." % [archive, megabytes])
+	_say("%s
+%.1f MB
 
-	_exclude_other_transport(preset, WEB_EXCLUDES if _pending_web else NATIVE_EXCLUDES)
+%s" % [
+		archive.get_file(),
+		megabytes,
+		"On the upload page, choose Add a build > Play in the browser." if _pending_web
+			else "On the upload page, choose Add a build > %s. A native-only prototype also needs a "
+				% OS.get_name() + "cover image.",
+	])
+	if not _headless():
+		OS.shell_show_in_file_manager(ProjectSettings.globalize_path(archive), true)
 
-	var name := "prototir-web" if _pending_web else "prototir-" + OS.get_name().to_lower()
+
+## Exports and zips one build into directory, without asking or announcing anything, so Export
+## and Publish to Prototir share one path. Returns {"archive": path, "preset": preset} or
+## {"error": text for the creator}.
+func build(web: bool, directory: String) -> Dictionary:
+	var preset := _find_preset(WEB_PLATFORMS if web else _host_platforms())
+	if preset.is_empty():
+		return {"error": missing_preset_message(web)}
+
+	_exclude_other_transport(preset, WEB_EXCLUDES if web else NATIVE_EXCLUDES)
+
+	var name := "prototir-web" if web else "prototir-" + OS.get_name().to_lower()
 	# A clean folder per export: leftovers from a previous build ship inside the archive and are
 	# impossible to spot once it is uploaded.
 	var output := directory.path_join(name)
@@ -95,7 +110,7 @@ func _on_directory_chosen(directory: String) -> void:
 		_remove_tree(output)
 	DirAccess.make_dir_recursive_absolute(output)
 
-	var entry := output.path_join("index.html" if _pending_web else _executable_name(preset))
+	var entry := output.path_join("index.html" if web else _executable_name(preset))
 	var arguments := PackedStringArray([
 		"--headless",
 		"--path", ProjectSettings.globalize_path("res://"),
@@ -109,30 +124,60 @@ func _on_directory_chosen(directory: String) -> void:
 		print(line)
 
 	if code != 0 or not FileAccess.file_exists(entry):
-		_say("The export did not finish. The Output panel has the log.\n\n"
+		return {"error": "The export did not finish. The Output panel has the log.
+
+"
 			+ "The usual cause is a missing export template: install it from Editor > Manage "
-			+ "Export Templates, then try again.")
-		return
+			+ "Export Templates, then try again."}
 
 	var archive := output + ".zip"
 	if not _zip(output, archive):
 		# The build itself is fine and can be zipped by hand, so this is a note, not a failure that
 		# should make a creator think the export was wasted.
-		_say("The build succeeded but could not be zipped. Zip this folder yourself before "
-			+ "uploading:\n\n" + output)
-		return
+		return {"error": "The build succeeded but could not be zipped. Zip this folder yourself "
+			+ "before uploading:
 
-	var megabytes := FileAccess.open(archive, FileAccess.READ).get_length() / 1024.0 / 1024.0
-	print("Prototir: exported %s (%.1f MB). Upload it at prototir.com." % [archive, megabytes])
-	_say("%s\n%.1f MB\n\n%s" % [
-		archive.get_file(),
-		megabytes,
-		"On the upload page, choose Add a build > Play in the browser." if _pending_web
-			else "On the upload page, choose Add a build > %s. A native-only prototype also needs a "
-				% OS.get_name() + "cover image.",
-	])
-	if not _headless():
-		OS.shell_show_in_file_manager(ProjectSettings.globalize_path(archive), true)
+" + output}
+	return {"archive": archive, "preset": preset}
+
+
+## Whether this project can build the kind asked for, checked before anything slow happens.
+func has_preset(web: bool) -> bool:
+	return not _find_preset(WEB_PLATFORMS if web else _host_platforms()).is_empty()
+
+
+func missing_preset_message(web: bool) -> String:
+	if web:
+		return ("Add a Web export preset first, in Project > Export > Add > Web.
+
+"
+			+ "Install the Web export templates from Editor > Manage Export Templates if the "
+			+ "preset reports them missing.")
+	return ("Add an export preset for this machine first, in Project > Export > Add > %s.
+
+"
+		% OS.get_name()
+		+ "This button does not export for the other desktop platforms: cross-exporting "
+		+ "macOS and Linux from here needs their own templates, and a build nobody can run "
+		+ "is worse than no build at all.")
+
+
+## The architecture a native preset builds for, in Prototir's words: x64, arm64 or universal.
+## Godot writes it as binary_format/architecture in the preset's options; macOS defaults to a
+## universal build and the other desktops to x86_64.
+func native_architecture(preset: Dictionary, presets_path := PRESETS_PATH) -> String:
+	var config := ConfigFile.new()
+	var value := ""
+	if config.load(presets_path) == OK:
+		value = str(config.get_value(str(preset.get("section", "")) + ".options", "binary_format/architecture", ""))
+	match value:
+		"arm64":
+			return "arm64"
+		"universal":
+			return "universal"
+		"x86_64":
+			return "x64"
+	return "universal" if str(preset.get("platform", "")) == "macOS" else "x64"
 
 
 ## Adds the unused transport to this preset exclude filter, once, and leaves it there.
