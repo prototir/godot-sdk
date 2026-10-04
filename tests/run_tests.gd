@@ -106,6 +106,7 @@ func _run_all() -> void:
 	_pairing_screen_tests()
 	await _feedback_screen_tests()
 	await _feedback_tools_tests()
+	_update_check_tests()
 
 
 # --- publish to prototir ---------------------------------------------------------------------------
@@ -863,6 +864,30 @@ func _feedback_tools_tests() -> void:
 	native._http = old_http
 	native._tokens = old_tokens
 	native._slug = old_slug
+
+
+# --- addon update check ----------------------------------------------------------------------
+
+func _update_check_tests() -> void:
+	var UpdateCheck := load("res://addons/prototir/editor/update_check.gd")
+	_current = "only a readable newer release counts as an update"
+	_check(UpdateCheck.is_newer("0.5.0", "0.4.0"))
+	_check(UpdateCheck.is_newer("v0.10.0", "0.9.9"))
+	_check(not UpdateCheck.is_newer("0.4.0", "0.4.0"))
+	_check(not UpdateCheck.is_newer("0.3.9", "0.4.0"))
+	_check(not UpdateCheck.is_newer("0.5.0-rc.1", "0.4.0"))
+	_check(not UpdateCheck.is_newer("0.5.0", "local"))
+	_check(not UpdateCheck.is_newer("1.0", "0.4.0"))
+
+	_current = "the installed version is read from plugin.cfg"
+	_check_eq(UpdateCheck.installed_version(), "0.4.0")
+
+	_current = "a release can only write inside addons/prototir"
+	var entries: PackedStringArray = UpdateCheck.addon_entries(PackedStringArray([
+		"addons/", "addons/prototir/", "addons/prototir/plugin.cfg", "addons/prototir/native/x.gd",
+		"project.godot", "addons/other/a.gd", "addons/prototir/../../evil.gd",
+	]))
+	_check_eq(entries, PackedStringArray(["addons/prototir/plugin.cfg", "addons/prototir/native/x.gd"]))
 
 
 # --- harness ------------------------------------------------------------------------------------

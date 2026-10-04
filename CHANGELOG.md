@@ -2,6 +2,12 @@
 
 ## 0.4.0 - 2026-10-04
 
+- **Update check.** The editor looks for a newer addon once a day (or **Project > Tools >
+  Prototir: Check for Addon Updates**) and shows it in the Prototir dock with **What's new** and
+  **Update**, which replaces `addons/prototir` with the release and offers to restart the editor.
+  Nothing changes until you press it.
+- On Prototir, Web exports now run the current review runtime instead of the copy bundled at
+  export, so testers get new tools without the project being exported again.
 - **Feedback & tools** for testers, with nothing to set up: Screenshot, Comment, Console and
   Performance. Web exports get the web SDK's control. Native builds get the same control in the
   bottom-left corner whenever the build knows its prototype: the performance chart records only

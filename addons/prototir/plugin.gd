@@ -8,6 +8,7 @@ const SetupDock := preload("res://addons/prototir/setup_dock.gd")
 const ExportGuard := preload("res://addons/prototir/export_guard.gd")
 const ExportMenu := preload("res://addons/prototir/export_menu.gd")
 const PublishMenu := preload("res://addons/prototir/editor/publish_menu.gd")
+const UpdateCheck := preload("res://addons/prototir/editor/update_check.gd")
 
 const SETTINGS := {
 	"prototir/prototype_slug": "",
@@ -22,6 +23,7 @@ var _setup_dock
 var _export_guard: EditorExportPlugin
 var _export_menu
 var _publish_menu
+var _update_check
 
 
 func _enter_tree() -> void:
@@ -46,6 +48,13 @@ func _enter_tree() -> void:
 	# in a dialog nobody is looking at.
 	if DisplayServer.get_name() != "headless":
 		_register_settings()
+		# Same reason, and a headless copy has nobody to tell about an update.
+		_update_check = UpdateCheck.new()
+		add_child(_update_check)
+		_setup_dock.update_check = _update_check
+		_update_check.changed.connect(_setup_dock.refresh)
+		_update_check.check.call_deferred()
+	add_tool_menu_item("Prototir: Check for Addon Updates", _check_updates)
 	call_deferred("_report_setup")
 
 
@@ -75,6 +84,10 @@ func _exit_tree() -> void:
 	remove_tool_menu_item("Prototir: Publish to Prototir (Web)")
 	remove_tool_menu_item("Prototir: Publish to Prototir (Native)")
 	remove_tool_menu_item("Prototir: Unlink This Editor")
+	remove_tool_menu_item("Prototir: Check for Addon Updates")
+	if _update_check != null:
+		_update_check.queue_free()
+		_update_check = null
 	if _publish_menu != null:
 		_publish_menu.dispose()
 		_publish_menu = null
@@ -89,6 +102,12 @@ func _exit_tree() -> void:
 	var configured_path := str(ProjectSettings.get_setting(setting, "")).trim_prefix("*")
 	if configured_path == AUTOLOAD_PATH:
 		remove_autoload_singleton(AUTOLOAD_NAME)
+
+
+func _check_updates() -> void:
+	if _update_check != null:
+		_update_check.check(true)
+	_show_setup()
 
 
 func _show_setup() -> void:
