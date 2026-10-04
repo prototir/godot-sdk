@@ -11,10 +11,29 @@ const PairingFlow := preload("res://addons/prototir/native/pairing_flow.gd")
 const SessionRecorder := preload("res://addons/prototir/native/session_recorder.gd")
 const SessionQueue := preload("res://addons/prototir/native/session_queue.gd")
 const Transport := preload("res://addons/prototir/native/native_transport.gd")
+const ConsoleBuffer := preload("res://addons/prototir/native/console_buffer.gd")
 
 const SLUG_SETTING := "prototir/prototype_slug"
 const API_BASE_SETTING := "prototir/api_base_url"
 const DEVICE_LABEL_SETTING := "prototir/device_label"
+## Shows Feedback & tools (screenshot, comment, console, performance) to testers. On by default.
+const FEEDBACK_TOOLS_SETTING := "prototir/feedback_tools"
+const TOOLS_DOCK_PATH := "res://addons/prototir/native/ui/tools_dock.gd"
+
+## Godot 4.5 added Logger, which sees print(), push_warning(), push_error() and engine errors. It is
+## compiled from source only where it exists: a script file extending it would fail to parse on 4.3
+## and 4.4, which the addon still supports. There, the console holds what the game sends through
+## Prototir.log().
+const LOGGER_SOURCE := """extends Logger
+var buffer
+func _log_message(message: String, error: bool) -> void:
+	buffer.add(2 if error else 0, message)
+func _log_error(function: String, file: String, line: int, code: String, rationale: String, editor_notify: bool, error_type: int, script_backtraces: Array[ScriptBacktrace]) -> void:
+	var text := rationale if not rationale.is_empty() else code
+	if error_type != 1 and not file.is_empty():
+		text += "\\n  at %s (%s:%d)" % [function, file, line]
+	buffer.add(1 if error_type == 1 else 2, text)
+"""
 ## Where a native build talks to Prototir.
 ##
 ## Its own hostname, not prototir.com/api: the site serves no /api path, so that default reached
@@ -60,6 +79,25 @@ var _device_label := ""
 var _configuration_warned := false
 var _stored_on_close := false
 
+## The build's console, recorded from start. See console_buffer.gd.
+var console := ConsoleBuffer.new()
+## False on Godot 4.3 and 4.4, where only Prototir.log() reaches the console.
+var console_captures_engine := false
+var _logger
+var _tools: Node
+
+
+func _init() -> void:
+	# As early as the autoload exists, so the console holds what happened before anyone looked.
+	if ClassDB.class_exists("Logger") and OS.has_method("add_logger"):
+		var script := GDScript.new()
+		script.source_code = LOGGER_SOURCE
+		if script.reload() == OK:
+			_logger = script.new()
+			_logger.buffer = console
+			OS.call("add_logger", _logger)
+			console_captures_engine = true
+
 
 func _ready() -> void:
 	_http = Transport.Http.new(self)
@@ -80,6 +118,29 @@ func _ready() -> void:
 	heartbeat.process_mode = Node.PROCESS_MODE_ALWAYS
 	heartbeat.timeout.connect(flush_session)
 	add_child(heartbeat)
+	_show_tools_if_wanted.call_deferred()
+
+
+## Testers get Feedback & tools without the developer writing anything, but only in a build
+## Prototir knows: anywhere else a comment would have nowhere to go.
+func _show_tools_if_wanted() -> void:
+	if not _slug.is_empty() and bool(ProjectSettings.get_setting(FEEDBACK_TOOLS_SETTING, true)):
+		set_tools_visible(true)
+
+
+func set_tools_visible(visible: bool) -> void:
+	if visible:
+		if is_instance_valid(_tools) or not is_inside_tree():
+			return
+		_tools = load(TOOLS_DOCK_PATH).new()
+		get_tree().root.add_child.call_deferred(_tools)
+	elif is_instance_valid(_tools):
+		_tools.queue_free()
+		_tools = null
+
+
+func tools_visible() -> bool:
+	return is_instance_valid(_tools)
 
 
 ## Overrides the project settings, for a game that decides its slug at runtime.
@@ -99,6 +160,8 @@ func configure(slug: String, api_base := "", device_label := "") -> void:
 	# a build that learns its prototype at runtime never reports a session at all. Cheap when
 	# there is nothing to send.
 	send_pending()
+	if is_inside_tree():
+		_show_tools_if_wanted()
 
 
 func is_paired() -> bool:
@@ -211,7 +274,10 @@ func unpair() -> void:
 ## No session is needed first. Commenting is normally gated on having played, and that gate is
 ## waived for a paired device on purpose: approving the pairing is the stronger signal, since the
 ## tester signed in and authorised this exact build for this exact prototype.
-func send_feedback(text: String, client_id := "") -> bool:
+##
+## `console` (a log or performance summary) and `screenshot` ({"image": data URL, "x", "y"} from 0
+## to 1) are what the comment is about; the message is still required.
+func send_feedback(text: String, client_id := "", console_text := "", screenshot := {}) -> bool:
 	if text.strip_edges().is_empty():
 		return false
 	if not _ensure_configured():
@@ -224,6 +290,14 @@ func send_feedback(text: String, client_id := "") -> bool:
 	var body := {"text": text.strip_edges()}
 	if not client_id.is_empty():
 		body["clientId"] = client_id
+	if not console_text.strip_edges().is_empty():
+		body["console"] = console_text
+	if not str(screenshot.get("image", "")).is_empty():
+		body["screenshot"] = {
+			"image": str(screenshot.image),
+			"x": clampf(float(screenshot.get("x", 0.5)), 0.0, 1.0),
+			"y": clampf(float(screenshot.get("y", 0.5)), 0.0, 1.0),
+		}
 	var response: Dictionary = await _http.post_json(
 		_url("comments"), JSON.stringify(body), token)
 	var status := int(response.get("status", 0))
@@ -267,6 +341,9 @@ func read_injected_slug() -> String:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_EXIT_TREE:
 		_store_session()
+	if what == NOTIFICATION_PREDELETE and _logger != null:
+		OS.call("remove_logger", _logger)
+		_logger = null
 	# Alt-tabbing away is where a play most often ends for good, and the tree is still running to
 	# carry the request.
 	elif what == NOTIFICATION_APPLICATION_FOCUS_OUT:

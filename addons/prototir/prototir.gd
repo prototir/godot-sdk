@@ -238,7 +238,8 @@ func show_pairing_screen() -> Node:
 	return _pairing_screen
 
 
-## One comment box, with pairing when needed. Web exports use the host screenshot composer.
+## One comment box, with pairing when needed. Feedback & tools opens the same box with a screenshot
+## or a log attached. Web exports use the host screenshot composer.
 func show_feedback_screen(initial_text := "") -> Node:
 	if _native == null:
 		return null
@@ -248,6 +249,32 @@ func show_feedback_screen(initial_text := "") -> Node:
 	_feedback_screen.initial_text = initial_text
 	get_tree().root.add_child(_feedback_screen)
 	return _feedback_screen
+
+
+## Show or hide Feedback & tools (Screenshot, Comment, Console, Performance) in a native build. On
+## by default in a build Prototir knows; turn it off here or with Project Settings >
+## prototir/feedback_tools to draw your own button. A Web export uses the page's control.
+func set_feedback_tools(visible: bool) -> void:
+	if _native != null:
+		_native.set_tools_visible(visible)
+
+
+func is_feedback_tools_visible() -> bool:
+	return _native != null and _native.tools_visible()
+
+
+## Print a line and record it in the Console tool. Godot 4.5+ records print() and errors by
+## itself; on 4.3 and 4.4 this is the only way a line reaches the Console a tester sees.
+func log(message: String) -> void:
+	print(message)
+	if _native != null and not _native.console_captures_engine:
+		_native.console.add(0, message)
+
+
+## The console recorded since the build started, one line per entry, in the form the Console tool
+## copies and attaches. Empty in a Web export, where the page records the browser console.
+func console_text() -> String:
+	return "" if _native == null else _native.console.text()
 
 
 ## Forget the stored token, so this build pairs again next time.

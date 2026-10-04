@@ -14,6 +14,8 @@ const SETTINGS := {
 	# Kept in step with NativeRuntime.DEFAULT_API_BASE, which explains the choice of host.
 	"prototir/api_base_url": "https://api.prototir.com/api",
 	"prototir/device_label": "",
+	# Feedback & tools for testers in native builds; see native/ui/tools_dock.gd.
+	"prototir/feedback_tools": true,
 }
 
 var _setup_dock
@@ -57,7 +59,7 @@ func _register_settings() -> void:
 		ProjectSettings.set_initial_value(name, SETTINGS[name])
 		ProjectSettings.add_property_info({
 			"name": name,
-			"type": TYPE_STRING,
+			"type": typeof(SETTINGS[name]),
 			"hint": PROPERTY_HINT_NONE,
 		})
 	ProjectSettings.save()

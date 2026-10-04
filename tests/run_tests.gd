@@ -105,6 +105,7 @@ func _run_all() -> void:
 	_setup_target_tests()
 	_pairing_screen_tests()
 	await _feedback_screen_tests()
+	await _feedback_tools_tests()
 
 
 # --- publish to prototir ---------------------------------------------------------------------------
@@ -729,6 +730,136 @@ func _feedback_screen_tests() -> void:
 	screen = Prototir.show_feedback_screen()
 	_check_eq(screen._text.text, "Another comment")
 	screen.free()
+	native._http = old_http
+	native._tokens = old_tokens
+	native._slug = old_slug
+
+
+# --- feedback & tools ---------------------------------------------------------------------------
+
+func _feedback_tools_tests() -> void:
+	var ConsoleBuffer := load("res://addons/prototir/native/console_buffer.gd")
+	var Sampler := load("res://addons/prototir/native/performance_sampler.gd")
+
+	_current = "the console keeps the newest entries in order"
+	var buffer = ConsoleBuffer.new()
+	for i in ConsoleBuffer.CAPACITY + 20:
+		buffer.add(ConsoleBuffer.Level.LOG, "tick %d" % (i + 1))
+	var entries: Array = buffer.entries()
+	_check_eq(entries.size(), ConsoleBuffer.CAPACITY)
+	_check_eq(entries[0].text, "tick 21")
+	_check_eq(entries[-1].text, "tick %d" % (ConsoleBuffer.CAPACITY + 20))
+
+	_current = "console text matches the web and Unity form, and clearing changes the version"
+	buffer.clear()
+	buffer.add(ConsoleBuffer.Level.WARNING, "Texture too large\n")
+	buffer.add(ConsoleBuffer.Level.ERROR, "boom\n  at Player.gd:3")
+	var lines: PackedStringArray = buffer.text().split("\n")
+	_check(lines[0].ends_with(" [warn] Texture too large"))
+	_check(lines[1].ends_with(" [error] boom"))
+	_check_eq(lines[2], "  at Player.gd:3")
+	var regex := RegEx.create_from_string("^\\d\\d:\\d\\d:\\d\\d\\.\\d{3} ")
+	_check(regex.search(lines[0]) != null)
+	var version: int = buffer.version
+	buffer.clear()
+	_check(buffer.entries().is_empty())
+	_check(buffer.version != version)
+
+	_current = "Godot 4.5+ records print() and errors from the start of the run"
+	if Prototir._native.console_captures_engine:
+		print("feedback-tools probe line")
+		_check(Prototir.console_text().contains("[log] feedback-tools probe line"))
+
+	_current = "frames fold into quarter-second samples with the slowest frame"
+	var sampler = Sampler.new()
+	var completed := 0
+	for i in 14:
+		if sampler.add_frame(1.0 / 60.0, 120.0):
+			completed += 1
+	if sampler.add_frame(0.05, 121.0):
+		completed += 1
+	_check_eq(completed, 1)
+	_check(absf(sampler.samples[0].worst_ms - 50.0) < 0.5)
+
+	_current = "one minute of history is kept and summarised"
+	sampler.reset()
+	for i in 60 * 70:
+		sampler.add_frame(1.0 / 60.0, 100.0 + (i / 15) % 3)
+	_check_eq(sampler.samples.size(), Sampler.HISTORY)
+	var summary: String = sampler.summary("Windows")
+	_check(summary.contains("[performance] 70s recorded, Windows"))
+	_check(summary.contains("average 60.0 fps"))
+	_check(summary.contains("static memory 100-102 MB"))
+	_check_eq(Sampler.new().summary("Windows"), "No performance recorded yet.")
+
+	var native = Prototir._native
+	var old_http = native._http
+	var old_tokens = native._tokens
+	var old_slug: String = native._slug
+	var http := FakeHttp.new()
+	native._http = http
+	native._tokens = FeedbackTokens.new()
+	native._slug = "feedback-tools-test"
+
+	_current = "a comment body leaves out what was not attached"
+	http.responses = [{"status": 201}, {"status": 201}]
+	await native.send_feedback("  Jump feels late ")
+	_check_eq(JSON.parse_string(http.calls[0].body), {"text": "Jump feels late"})
+
+	_current = "a comment body carries the log and a pinned screenshot"
+	await native.send_feedback("Boss freezes", "", "09:00:00.000 [error] boom", {"image": "data:image/jpeg;base64,AAA", "x": 0.25, "y": 1.4})
+	var body: Dictionary = JSON.parse_string(http.calls[1].body)
+	_check_eq(body.console, "09:00:00.000 [error] boom")
+	_check_eq(body.screenshot, {"image": "data:image/jpeg;base64,AAA", "x": 0.25, "y": 1.0})
+
+	_current = "the composer posts its attachments and needs a message"
+	var screen = Prototir.show_feedback_screen()
+	await get_tree().process_frame
+	var image := Image.create(320, 180, false, Image.FORMAT_RGB8)
+	image.fill(Color.DARK_GREEN)
+	screen.attach_screenshot(image)
+	screen.attach_log("line one\nline two", "console log")
+	_check_eq(screen._heading.text, "Screenshot feedback")
+	_check(screen._shot_box.visible)
+	_check_eq(screen._attachment_label.text, "Console log attached · 2 lines")
+	screen._text.text = ""
+	screen._changed()
+	_check(screen._post.disabled)
+	screen._text.text = "The tree clips through the wall"
+	screen._changed()
+	http.responses = [{"status": 201}]
+	await screen._submit()
+	var posted: Dictionary = JSON.parse_string(http.calls[2].body)
+	_check_eq(posted.console, "line one\nline two")
+	_check(str(posted.screenshot.image).begins_with("data:image/jpeg;base64,"))
+	_check_eq(posted.screenshot.x, 0.5)
+	_check(not screen._shot_box.visible)
+	_check(not screen._attachment_box.visible)
+	_check_eq(screen._heading.text, "Comment")
+	screen.free()
+
+	_current = "the tools control builds folded, with every tool off"
+	native.set_tools_visible(true)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var tools = native._tools
+	_check(tools != null)
+	_check(not tools._tools.visible)
+	_check(not tools.is_processing())
+	tools.toggle()
+	_check(tools._tools.visible)
+	tools.set_console(true)
+	tools.set_performance(true)
+	_check(tools.is_processing())
+	_check_eq(tools._console_state.text, "On")
+	await get_tree().process_frame
+	_check(tools._console_log.get_parsed_text().length() > 0)
+	tools.set_console(false)
+	tools.set_performance(false)
+	_check(not tools.is_processing())
+	native.set_tools_visible(false)
+	_check(not native.tools_visible())
+
 	native._http = old_http
 	native._tokens = old_tokens
 	native._slug = old_slug
