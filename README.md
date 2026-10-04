@@ -16,7 +16,7 @@ export settings so unsupported profiles are caught before upload.
 ## Install
 
 Download the `addons/prototir` directory from the
-[v0.3.0 release](https://github.com/prototir/godot-sdk/releases/tag/v0.3.0) and copy it into your
+[v0.4.0 release](https://github.com/prototir/godot-sdk/releases/tag/v0.4.0) and copy it into your
 project. Then:
 
 1. Enable **Prototir SDK** under **Project Settings > Plugins**.

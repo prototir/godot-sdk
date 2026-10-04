@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 - 2026-10-04
 
 - **Feedback & tools** for testers, with nothing to set up: Screenshot, Comment, Console and
   Performance. Web exports get the web SDK's control. Native builds get the same control in the
