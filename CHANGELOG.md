@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Web builds get the web SDK's **Feedback & tools** control: Screenshot, Comment, Console and
+  Performance. Native builds get the same tools in a later update of this release.
 - The bundled review runtime (web builds) now draws the feedback button like the Prototir badge,
   with the Prototir mark, and uses the website's current palette.
 
