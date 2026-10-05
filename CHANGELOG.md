@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- The bundled review runtime (web builds) is web SDK 0.3.1: Copy in the Console and Performance
+  panels now works inside the Prototir player.
+
 ## 0.4.0 - 2026-10-04
 
 - **Update check.** The editor looks for a newer addon once a day (or **Project > Tools >
