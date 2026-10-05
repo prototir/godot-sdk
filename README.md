@@ -1,10 +1,12 @@
 # Prototir SDK for Godot
 
-The official Godot integration for prototypes hosted on [Prototir](https://prototir.com). The addon
-connects browser and native exports to lifecycle signals, analytics events, scores, and feedback.
-Browser exports also use persistent SDK storage, managed text generation, and screenshot feedback.
-Native releases pair with a tester's account and report over HTTP. The editor dock checks browser
-export settings so unsupported profiles are caught before upload.
+The official Godot integration for [Prototir](https://prototir.com), where creators publish
+playable prototypes and testers play them and leave feedback. The addon connects Web and native
+(Windows, macOS, Linux) exports to lifecycle signals, analytics events, scores and sessions, and gives
+testers **Feedback & tools**: Screenshot, Comment, Console and Performance, with nothing for you to
+write. Web exports also get persistent storage and managed text generation. Native releases pair
+with a tester's account and report over HTTP. The editor dock checks export settings before upload,
+and **Publish to Prototir** uploads straight from the editor.
 
 ## Compatibility
 
@@ -25,12 +27,13 @@ project. Then:
 4. Use the appropriate **Export for Prototir** command for a browser or native release.
    Native builds do not need `index.html`; see [Native builds](#native-builds).
 
-The addon installs `Prototir` as an autoload. Pin a published release tag for reproducible projects.
+The addon installs `Prototir` as an autoload. It stays on its release until you choose to move;
+the editor checks for a newer one once a day: see [Staying up to date](#staying-up-to-date).
 
 ## Basic use
 
 Browser exports use the host connection. Native releases must pair before sending sessions or
-text feedback; see [Native builds](#native-builds). Storage and AI in this example
+feedback; see [Native builds](#native-builds). Storage and AI in this example
 are browser features; native calls use local mocks.
 
 ```gdscript
@@ -81,14 +84,32 @@ node tools/export-validator.mjs /path/to/export
 The Prototir sandbox supplies a CSP-safe JavaScript interface. The addon retrieves that interface
 with `JavaScriptBridge.get_interface()` and never executes inline JavaScript or requests
 `unsafe-eval`. The Editor emits mock signals and can test pairing, but never reports development
-play as a real session. Native releases report Ready, events, scores, sessions, and text feedback
+play as a real session. Native releases report Ready, events, scores, sessions, and feedback
 after pairing. SDK storage remains in memory outside Web exports, and managed AI requires an
 explicit local `mock_ai_handler`; use your own save files for persistent native state.
 
-## Screenshot feedback
+## Feedback & tools
 
-Call `review_enable` to give testers a floating feedback button in Web exports. They capture the
-current view, drop a pin on that screenshot and write a comment.
+Testers get one **Feedback & tools** control, with its tools unfolding inside the same border:
+
+- **Screenshot** captures the frame; the tester places a pin and writes what they mean.
+- **Comment** is a plain comment on the prototype.
+- **Console** is recorded from start. Testers can copy it or attach it to a comment, where it shows
+  collapsed.
+- **Performance** charts frame rate, slowest frame and memory, recorded only while open. A summary
+  can be copied or attached.
+
+A screenshot, log or summary is always sent with a message, never on its own. Comments follow the
+prototype's moderation and comment settings.
+
+### In Web exports
+
+On Prototir the player draws the control and feedback is on with no code. Prototir also replaces
+the runtime the export bundles with the current one, so testers get new tools without the project
+being exported again.
+
+Call `review_enable` to capture Godot's own frame for screenshots, pause while the tester writes, or
+connect an export you host yourself:
 
 ```gdscript
 func _ready() -> void:
@@ -100,42 +121,46 @@ func _on_review_visibility(open: bool) -> void:
 	get_tree().paused = open
 ```
 
-`review_enable(project, build, corner, launcher, theme)` takes a stable `project` identifier (reviews exported from
-another project are refused on import), a `build` recorded with the feedback, and a corner of
-`bottom-left` (default), `bottom-right`, `top-left`, or `top-right`. `review_disable()` removes the
-overlay. `launcher` is `auto` (Prototir draws the control on its own surfaces), `watermark` (always
-show the Prototir mark and its menu) or `host` (draw nothing). `theme` is `auto`, `light` or `dark`.
+`review_enable(project, build, corner, launcher, theme, api_base, slug)` takes a stable `project`
+identifier, a `build` recorded with the feedback, and a corner of `bottom-left` (default),
+`bottom-right`, `top-left` or `top-right`. `launcher` is `auto` (Prototir draws the control on its
+own surfaces) or `host` (draw nothing so your own UI opens it); `theme` is `auto`, `light` or `dark`.
+`review_disable()` removes it. Screenshots come from the viewport after
+`RenderingServer.frame_post_draw`, so they match the rendered frame.
 
-Off Prototir the mark opens an icon menu with **Screenshot** and **Review files** while offline,
-or **Screenshot** and **Comments** when connected to Prototir. **Open on Prototir** appears when
-configured. Choosing Screenshot captures the frame and opens the focused composer; Review files
-contains import and export.
+An export hosted elsewhere needs `api_base` and `slug` to post; without them it shows no feedback
+control, because comments would have nowhere to go.
 
-Connect `review_visibility_changed` and pause while the panel is open, otherwise the game keeps
-consuming the input the tester is typing into their comment.
+### In native exports
 
-Screenshots come from the viewport after `RenderingServer.frame_post_draw`, so they match the
-rendered frame. The export plugin bundles the browser runtime with the export, which is what lets
-this work off Prototir; re-export with the addon enabled after upgrading.
+The same control appears in the bottom-left corner of any native export that knows its prototype,
+which it does once uploaded to Prototir. The first post asks the tester to approve the build at
+prototir.com/link; comments then post as that account. Testers can disconnect a build from their
+Prototir account settings.
 
-For browser exports hosted elsewhere, `review_enable` accepts `api_base` and `slug` for the
-browser panel's connection. Without that connection, the browser panel saves review files offline.
+```gdscript
+Prototir.set_feedback_tools(false)        # hide it (or switch off prototir/feedback_tools)
+Prototir.show_feedback_screen()           # the same comment screen, from your own button
+var log := Prototir.console_text()        # what the Console tool has recorded
+await Prototir.send_feedback("...")       # post a comment from code
+```
 
-`review_enable` warns and returns on non-Web exports. On Prototir the feedback becomes an ordinary
-comment on the prototype, after Prototir's own confirmation dialog. In a Web export you host
-yourself the panel saves a `feedback.prototir-review.json` file that the tester sends you and you
-reload with **Import review**. See the
-[Web SDK README](https://github.com/prototir/web-sdk#screenshot-feedback) for the file format and its
-limits.
+On Godot 4.5 and newer the console records `print()`, warnings and errors from start. On 4.3 and
+4.4 it holds what the game sends through `Prototir.log("...")`, and the panel tells testers so. The
+performance sampler runs only while its panel is open. The comment screen keeps an unfinished
+comment for the run, opens pairing when needed, and reuses its submission id when a post is
+retried. These are flat desktop overlays, not headset UI: VR projects should hide them and use their
+own interface with the pairing signals and `send_feedback`.
 
-### Text feedback from a native build
+## Staying up to date
 
-A native export pairs through a code approved at `prototir.com/link`, receiving authorization for
-one prototype. After approval, call `Prototir.send_feedback(text)` from your own comment UI.
-The browser `review_enable` screenshot overlay does not run in a native export.
+Once a day (or with **Project > Tools > Prototir: Check for Addon Updates**) the editor looks at
+this repository's latest release. When it is newer, the **Prototir** dock shows it with **What's
+new** and **Update**, which replaces `addons/prototir` with the release and offers to restart the
+editor; nothing changes until you press it. Changes you made inside that folder are replaced.
 
-The addon reuses the pairing until it is revoked or expires. Keep the tester's draft on send failure
-and offer a retry. Testers can disconnect a build from their Prototir account settings.
+Web exports on Prototir always run the current feedback runtime. A native export keeps the addon it
+was built with, so export again after updating to give its testers new tools.
 
 ## Native builds
 
@@ -272,9 +297,3 @@ export, pass the structural validator, and play in the real Prototir sandbox.
 ## License
 
 [MIT](LICENSE.md)
-
-### Simple native feedback
-
-Call `Prototir.show_feedback_screen()` from your game's Feedback button. The desktop screen retains unfinished comments during this run and failed posts, and offers browser pairing when needed. After pairing the tester reviews the draft and presses Post. A retry reuses the submission ID, and comments pass the existing API text checks. The returned screen emits `closed` for custom pause handling.
-
-These flat overlays are not headset UI. VR projects should use their own interface and the pairing signals / `send_feedback`. Native screenshots are not provided.
